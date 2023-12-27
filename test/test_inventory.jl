@@ -1,7 +1,7 @@
 using Test
 using TestingUtilities: @Test
 using DocInventories
-using DocInventories: uri, spec, find_in_inventory
+using DocInventories: uri, spec, find_in_inventory, write_inventory
 using Downloads: RequestError
 using IOCapture: IOCapture
 
@@ -31,6 +31,12 @@ end
     try
         inventory = Inventory("https://qucontrol.github.io/krotov/v1.2.1/objects.inv")
         @test inventory.project == "Krotov"
+        fig_label = inventory[":std:label:`figoctdecisiontree`"].dispname
+        @test length(split(fig_label, "\n")) > 10
+        # It's unusual for a `dispname` to span multiple lines, but it does
+        # happen "in the wild" (as this example demonstrates). We're making
+        # sure that we can properly parse inventories with such extra lines.
+        # Other libraries (https://github.com/bskinn/sphobjinv) do not!
     catch exc
         @warn "Cannot read online inventory in test" exception = exc
     end
@@ -42,6 +48,8 @@ end
         Inventory("http://noexist.michaelgoerz.net/"; timeout=0.01, retries=1)
     end
     c = IOCapture.capture(rethrow=Union{}) do
+        # example.com should respond with an html file, which is invalid data
+        # for an inventory
         Inventory("http://example.com")
     end
     if c.value isa ArgumentError
@@ -213,5 +221,72 @@ end
             quiet=true
         )
     )
+
+end
+
+
+@testset "Inventory I/O" begin
+
+    inventory = Inventory(project="IOTest", version="1.0")
+
+    push!(
+        inventory,
+        InventoryItem(":jl:func:`a`" => "#\$"),
+        InventoryItem(":jl:type:`A`" => "#\$"),
+    )
+    @test length(inventory) == 2
+    @test !inventory.sorted
+
+    mktempdir() do tempdir
+
+        filename = tempname(tempdir; cleanup=false)
+        write(filename, inventory)  # default format
+        readinv = Inventory(filename)
+        @test length(readinv) == 2
+        @test readinv.sorted
+        readinv = Inventory(filename; mime="application/x-sphinxobj")
+        @test length(readinv) == 2
+
+        filename = joinpath(tempdir, "objects.inv")
+        write_inventory(filename, inventory)  # auto-mime
+        readinv = Inventory(filename; mime="application/x-sphinxobj")
+        @test length(readinv) == 2
+        @test readinv.sorted
+
+        filename = joinpath(tempdir, "objects.txt")  # inappropriate extension
+        write_inventory(filename, inventory, "application/x-sphinxobj")
+        readinv = Inventory(filename; mime="application/x-sphinxobj")
+        @test length(readinv) == 2
+
+        filename = joinpath(tempdir, "objects.txt")
+        write_inventory(filename, inventory)  # auto-mime
+        readinv = Inventory(filename; mime="text/plain")
+        @test length(readinv) == 2
+
+        filename = joinpath(tempdir, "objects.inv")  # inappropriate extension
+        write_inventory(filename, inventory, "text/plain")
+        readinv = Inventory(filename; mime="text/plain")
+        @test length(readinv) == 2
+
+        filename = tempname(tempdir; cleanup=false)
+        c = IOCapture.capture(rethrow=Union{}) do
+            write_inventory(filename, inventory, "application/x-invalid")
+        end
+        @test c.value isa ArgumentError
+        if c.value isa ArgumentError
+            @test contains(c.value.msg, "Invalid mime format")
+        end
+
+        filename = tempname(tempdir; cleanup=false)
+        write_inventory(filename, inventory)
+        c = IOCapture.capture(rethrow=Union{}) do
+            Inventory(filename; mime="application/x-invalid")
+        end
+        @test c.value isa ArgumentError
+        if c.value isa ArgumentError
+            @test contains(c.value.msg, "Invalid mime format")
+        end
+
+    end
 
 end

@@ -64,13 +64,15 @@ end
 """An inventory of objects and link targets in a project documentation.
 
 ```julia
-inventory = Inventory(source; mime="application/x-sphinxobj", root_url="")
+inventory = Inventory(source; mime=auto_mime(source), root_url="")
 ```
 
 loads an inventory file from the given `source`, which can be a URL or the path
 to a local file. If it is a URL, the options `timeout` (seconds to wait for
 network connections), `retries` (number of times to retry) and `wait_time`
-(seconds longer to wait between each retry) may be given.
+(seconds longer to wait between each retry) may be given. The `source` must
+contain data in the given mime type. By default the mime type is derived from
+the file extension, via [`auto_mime`](@ref).
 
 The `Inventory` acts as a collection of [`InventoryItems`](@ref InventoryItem),
 representing all the objects, sections, or other linkable items in the online
@@ -155,28 +157,93 @@ end
 
 
 function Inventory(; project, version="", root_url="")
-    Inventory(project, version, InventoryItem[], root_url, "", false)
+    Inventory(project, string(version), InventoryItem[], root_url, "", false)
 end
 
-# TODO: implement toml input/output format
-# TODO: refactor out read/write function for local file with different mime
-# type (with multiple dispatch on the mime type)
+
+"""Default map of file extensions to MIME types.
+
+```julia
+MIME_TYPES = Dict(
+    ".txt" => MIME("text/plain"),
+    ".inv" => MIME("application/x-sphinxobj"),
+)
+```
+"""
+const MIME_TYPES =
+    Dict(".txt" => MIME("text/plain"), ".inv" => MIME("application/x-sphinxobj"),)
+
+
+"""
+Determine the MIME type of the given file path or URL from the file extension.
+
+```julia
+mime = auto_mime(source)
+```
+
+returns a [`MIME` type](@extref Julia Base.Multimedia.MIME) from the extension
+of `source`. The default mapping is in [`MIME_TYPES`](@ref).
+
+Unknown or unsupported extensions return the default
+`MIME("application/x-sphinxobj")`.
+"""
+function auto_mime(source)
+    ext = splitext(source)[2]
+    return get(MIME_TYPES, ext, MIME_TYPES[".inv"])
+end
+
 
 function Inventory(
     source::AbstractString;
-    mime=MIME"application/x-sphinxobj"(),
+    mime=auto_mime(source),
     root_url="",
     timeout=1.0,
     retries=3,
     wait_time=1.0
 )
-
+    local project, version, items
     if contains(source, r"^https?://")
         bytes = _read_url(source; timeout=timeout, retries=retries, wait_time=wait_time)
     else
         bytes = read(source)
     end
     buffer = IOBuffer(bytes)
+    mime = MIME(mime)
+    try
+        project, version, items = read_inventory(buffer, mime)
+    catch exc
+        if exc isa MethodError
+            msg = "Invalid mime format $(mime)."
+            @error msg exception=exc
+            rethrow(ArgumentError(msg))
+        else
+            rethrow()
+        end
+    end
+    items = sort(items; by=(item -> item.name))
+    sorted = true
+    return Inventory(project, version, items, root_url, source, sorted)
+end
+
+
+function Base.propertynames(inventory::Inventory, private::Bool=false)
+    # Note that `private` is not a keyword arg!
+    if private
+        return fieldnames(Inventory)
+    else
+        return Tuple(name for name in fieldnames(Inventory) if name != :_items)
+    end
+end
+
+Base.length(inventory::Inventory) = length(inventory._items)
+Base.iterate(inventory::Inventory) = iterate(inventory._items)
+Base.iterate(inventory::Inventory, state) = iterate(inventory._items, state)
+Base.getindex(inventory::Inventory, ind::Int64) = getindex(inventory._items, ind)
+Base.firstindex(inventory::Inventory) = firstindex(inventory._items)
+Base.lastindex(inventory::Inventory) = lastindex(inventory._items)
+
+
+function read_inventory(buffer, mime::Union{MIME"application/x-sphinxobj",MIME"text/plain"})
 
     # Keep the four header lines, which are in plain text
     str = ""
@@ -265,28 +332,9 @@ function Inventory(
         end
     end
 
-    items = sort(items; by=(item -> item.name))
-    sorted = true
-
-    return Inventory(project, version, items, root_url, source, sorted)
+    return project, version, items
 
 end
-
-function Base.propertynames(inventory::Inventory, private::Bool=false)
-    # Note that `private` is not a keyword arg!
-    if private
-        return fieldnames(Inventory)
-    else
-        return Tuple(name for name in fieldnames(Inventory) if name != :_items)
-    end
-end
-
-Base.length(inventory::Inventory) = length(inventory._items)
-Base.iterate(inventory::Inventory) = iterate(inventory._items)
-Base.iterate(inventory::Inventory, state) = iterate(inventory._items, state)
-Base.getindex(inventory::Inventory, ind::Int64) = getindex(inventory._items, ind)
-Base.firstindex(inventory::Inventory) = firstindex(inventory._items)
-Base.lastindex(inventory::Inventory) = lastindex(inventory._items)
 
 
 function Base.show(io::IO, inventory::Inventory)
@@ -334,6 +382,68 @@ function Base.write(io::IO, inventory::Inventory)
     end
     close(stream)
 end
+
+
+"""Write the [`Inventory`](@ref) to file in the specified format.
+
+```julia
+write_inventory(filename, inventory, mime=auto_mime(filename))
+```
+
+writes `inventory` to `filename` in the specified MIME type. By default, the
+MIME type is derived from the file extension of `filename` via
+[`auto_mime`](@ref). Note that `mime` is an optional *positional* argument.
+
+The standard
+
+```julia
+write(filename, inventory)
+```
+
+is equivalent to
+
+```julia
+write_inventory(filename, inventory, MIME("application/x-sphinxobj"))
+```
+
+# See also
+
+* [`show(io, mime, inventory)`](@extref Base.show-Tuple{IO, Any, Any})
+  – write the MIME representation of `inventory` to the given `io` stream
+  (`stdout` by default)
+* [`repr(mime, inventory)`](@extref Julia Base.repr-Tuple{MIME, Any})
+  – return the MIME representation of `inventory` as a string.
+"""
+function write_inventory(filename::AbstractString, inventory, mime=auto_mime(filename))
+    mime = MIME(mime)
+    try
+        write(filename, repr(mime, inventory))
+    catch exc
+        if exc isa MethodError
+            msg = "Invalid mime format $(mime)."
+            @error msg exception=exc
+            rethrow(ArgumentError(msg))
+        else
+            rethrow()
+        end
+    end
+end
+
+function write_inventory(filename::AbstractString, inventory, mime::AbstractString)
+    write_inventory(filename, inventory, MIME(mime))
+end
+
+# Note: generally, new inventory formats shouldn't define new methods for
+# `write_inventory`, but instead should define `show(io, mime, inventory)`
+function write_inventory(
+    filename::AbstractString,
+    inventory,
+    ::MIME"application/x-sphinxobj"
+)
+    write(filename, inventory)
+end
+
+# TODO: implement toml input/output format
 
 
 """Find an item in the inventory.
