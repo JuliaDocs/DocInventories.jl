@@ -84,7 +84,8 @@ Alternatively,
 inventory = Inventory(; project, version="", root_url="")
 ```
 
-with a mandatory `project` argument instantiates an empty inventory.
+with a mandatory `project` argument instantiates an empty inventory to which
+[`InventoryItems`](@ref InventoryItem) can then subsequentyly be pushed.
 
 # Attributes
 
@@ -127,11 +128,14 @@ The search results are sorted by [`abs(item.priority)`](@ref InventoryItem). If
 
 # Methods
 
-* [`find_in_inventory`](@ref) – find a single item in the `inventory`
+* [`find_in_inventory(inventory, name)`](@ref find_in_inventory)
+  – find a single item in the `inventory`
 * [`filter(f, ::Inventory)`](@ref)] – filter the `inventory` for
   matching items.
 * [`collect(inventory)`](@extref Julia Base.collect-Tuple{Any}) – convert the
   `inventory` into a vector of [`InventoryItems`](@ref InventoryItem).
+* [`write_inventory(filename, inventory, [mime])`](@ref write_inventory)
+  – write the `inventory` to a file in any supported output format.
 * [`write("objects.inv", inventory)`](@extref Julia Base.write) – write the
   `inventory` to a binary file in the default `Sphinx inventory version 2`
   format.
@@ -167,11 +171,35 @@ end
 MIME_TYPES = Dict(
     ".txt" => MIME("text/plain"),
     ".inv" => MIME("application/x-sphinxobj"),
+    ".toml" => MIME("application/toml"),
+    ".txt.gz" => MIME("text/plain+gzip"),
+    ".toml.gz" => MIME("application/toml+gzip"),
 )
 ```
 """
-const MIME_TYPES =
-    Dict(".txt" => MIME("text/plain"), ".inv" => MIME("application/x-sphinxobj"),)
+const MIME_TYPES = Dict(
+    ".txt" => MIME("text/plain"),
+    ".inv" => MIME("application/x-sphinxobj"),
+    ".toml" => MIME("application/toml"),  # see toml_format.jl
+    ".txt.gz" => MIME("text/plain+gzip"),
+    ".toml.gz" => MIME("application/toml+gzip"),
+)
+
+
+# Split off all extensions (e.g., `".toml.gz"`), not just the last one
+# (`".gz"`)
+function splitfullext(filepath::String)
+    root, ext = splitext(filepath)
+    full_ext = ext
+
+    # Keep splitting until no more extensions are found
+    while ext != ""
+        root, ext = splitext(root)
+        (ext == "") && break
+        full_ext = ext * full_ext
+    end
+    return root, full_ext
+end
 
 
 """
@@ -184,12 +212,39 @@ mime = auto_mime(source)
 returns a [`MIME` type](@extref Julia Base.Multimedia.MIME) from the extension
 of `source`. The default mapping is in [`MIME_TYPES`](@ref).
 
-Unknown or unsupported extensions return the default
-`MIME("application/x-sphinxobj")`.
+Unknown or unsupported extensions throw an `ArgumentError`.
 """
 function auto_mime(source)
-    ext = splitext(source)[2]
-    return get(MIME_TYPES, ext, MIME_TYPES[".inv"])
+    try
+        ext = splitfullext(source)[2]
+        return MIME_TYPES[ext]
+    catch exception
+        msg = ("Cannot determine MIME type for $(repr(source)): $exception")
+        @error msg MIME_TYPES
+        rethrow(ArgumentError(msg))
+    end
+end
+
+
+function _unknown_mime_msg(mime)
+    """
+    Reading and writing an inventory file with a custom MIME type
+    requires the following:
+
+    * `DocInventories.MIME_TYPES` should contain a mapping from the
+      appropritate file extension to the MIME type.
+    * A method `DocInventories.read_inventory(buffer, mime)` must be
+      implemented for mime::MIME$(repr(string(mime))) and return a string
+      `project`, a string `version`, and a list `items` of `InventoryItem`
+      instances.
+    * A method `Base.show(io::IO, mime, inventory)` must be be implemented for
+      mime::MIME$(repr(string(mime))).
+
+    Any mime type ending with "+gzip" will automatically delegate to the mime
+    type without the "+gzip" prefix, so that all the above methods can assume
+    uncompressed data.
+
+    """
 end
 
 
@@ -201,7 +256,6 @@ function Inventory(
     retries=3,
     wait_time=1.0
 )
-    local project, version, items
     if contains(source, r"^https?://")
         bytes = _read_url(source; timeout=timeout, retries=retries, wait_time=wait_time)
     else
@@ -211,18 +265,17 @@ function Inventory(
     mime = MIME(mime)
     try
         project, version, items = read_inventory(buffer, mime)
-    catch exc
-        if exc isa MethodError
-            msg = "Invalid mime format $(mime)."
-            @error msg exception=exc
-            rethrow(ArgumentError(msg))
-        else
+        items = sort(items; by=(item -> item.name))
+        sorted = true
+        return Inventory(project, version, items, root_url, source, sorted)
+    catch exception
+        @error "Could not load Inventory from $source" exception
+        if exception isa InventoryFormatError
             rethrow()
+        else
+            rethrow(ArgumentError("Invalid source/mime for loading Inventory."))
         end
     end
-    items = sort(items; by=(item -> item.name))
-    sorted = true
-    return Inventory(project, version, items, root_url, source, sorted)
 end
 
 
@@ -243,6 +296,27 @@ Base.firstindex(inventory::Inventory) = firstindex(inventory._items)
 Base.lastindex(inventory::Inventory) = lastindex(inventory._items)
 
 
+function read_inventory(buffer, mime::Any)
+    try
+        mime_str = string(mime)
+        gzip_suffix = "+gzip"
+        if endswith(mime_str, gzip_suffix)
+            inner_mime = MIME(chop(mime_str, tail=length(gzip_suffix)))
+            io_uncompressed = GzipDecompressorStream(buffer)
+            project, version, items = read_inventory(io_uncompressed, inner_mime)
+            close(io_uncompressed)
+            return project, version, items
+        else
+            throw(ArgumentError("Invalid mime format $(mime)."))
+        end
+    catch exception
+        msg = _unknown_mime_msg(mime)
+        @error msg MIME_TYPES exception
+        rethrow()
+    end
+end
+
+
 function read_inventory(buffer, mime::Union{MIME"application/x-sphinxobj",MIME"text/plain"})
 
     # Keep the four header lines, which are in plain text
@@ -253,29 +327,31 @@ function read_inventory(buffer, mime::Union{MIME"application/x-sphinxobj",MIME"t
 
     # Decompress the rest of the file and append decoded text
     if string(mime) == "application/x-sphinxobj"
-        try
-            str *= String(read(ZlibDecompressorStream(buffer)))
-        catch exc
-            msg = "Invalid compressed data"
-            if exc isa ErrorException
-                msg *= ": $(exc.msg)"
+        if !contains(str, "# This file is empty")
+            try
+                str *= String(read(ZlibDecompressorStream(buffer)))
+            catch exc
+                msg = "Invalid compressed data"
+                if exc isa ErrorException
+                    msg *= ": $(exc.msg)"
+                end
+                throw(ArgumentError(msg))
             end
-            throw(ArgumentError(msg))
         end
-    elseif string(mime) == "text/plain"
-        str *= read(buffer, String)
     else
-        msg = "Invalid mime type '$mime'. Must be one of 'application/x-sphinxobj', 'text/plain'"
-        throw(ArgumentError(msg))
+        @assert string(mime) == "text/plain"
+        str *= read(buffer, String)
     end
 
     text_buffer = IOBuffer(str)
 
     header_line = readline(text_buffer)
     if !(header_line == "# Sphinx inventory version 2")
-        @show header_line
+        msg = "Invalid Sphinx header line. Must be \"# Sphinx inventory version 2\""
+        @error msg header_line
         msg = "Only v2 objects.inv files currently supported"
         throw(InventoryFormatError(msg))
+
     end
 
     project_line = readline(text_buffer)
@@ -296,13 +372,17 @@ function read_inventory(buffer, mime::Union{MIME"application/x-sphinxobj",MIME"t
         version = m["version"]
     end
 
+    items = InventoryItem[]
+
     compression_line = readline(text_buffer)
+    if contains(compression_line, "# This file is empty")
+        return project, version, items
+    end
     if !contains(compression_line, "zlib")
         msg = "Invalid compression line $(repr(compression_line))"
         throw(InventoryFormatError(msg))
     end
 
-    items = InventoryItem[]
     for line in readlines(text_buffer)
         m = match(rx_data, line)
         try
@@ -328,7 +408,7 @@ function read_inventory(buffer, mime::Union{MIME"application/x-sphinxobj",MIME"t
                 @error "Internal Error" exception = (exc, Base.catch_backtrace())
             end
             msg = "Unexpected line: $(repr(line))"
-            throw(InventoryFormatError(msg))
+            rethrow(InventoryFormatError(msg))
         end
     end
 
@@ -362,10 +442,14 @@ function Base.show(io::IO, ::MIME"text/plain", inventory::Inventory)
     println(io, "# Sphinx inventory version 2")
     println(io, "# Project: $(inventory.project)")
     println(io, "# Version: $(inventory.version)")
-    println(io, "# The remainder of this file would be compressed using zlib.")
-    for item in inventory._items
-        line = "$(item.name) $(item.domain):$(item.role) $(item.priority) $(item.uri) $(item.dispname)\n"
-        write(io, line)
+    if !isempty(inventory)
+        println(io, "# The remainder of this file would be compressed using zlib.")
+        for item in inventory._items
+            line = "$(item.name) $(item.domain):$(item.role) $(item.priority) $(item.uri) $(item.dispname)\n"
+            write(io, line)
+        end
+    else
+        println(io, "# This file is empty")
     end
 end
 
@@ -374,13 +458,17 @@ function Base.write(io::IO, inventory::Inventory)
     println(io, "# Sphinx inventory version 2")
     println(io, "# Project: $(inventory.project)")
     println(io, "# Version: $(inventory.version)")
-    println(io, "# The remainder of this file is compressed using zlib.")
-    stream = ZlibCompressorStream(io)
-    for item in inventory._items
-        line = "$(item.name) $(item.domain):$(item.role) $(item.priority) $(item.uri) $(item.dispname)\n"
-        write(stream, line)
+    if !isempty(inventory)
+        println(io, "# The remainder of this file is compressed using zlib.")
+        stream = ZlibCompressorStream(io)
+        for item in inventory._items
+            line = "$(item.name) $(item.domain):$(item.role) $(item.priority) $(item.uri) $(item.dispname)\n"
+            write(stream, line)
+        end
+        close(stream)
+    else
+        println(io, "# This file is empty")
     end
-    close(stream)
 end
 
 
@@ -392,15 +480,11 @@ write_inventory(filename, inventory, mime=auto_mime(filename))
 
 writes `inventory` to `filename` in the specified MIME type. By default, the
 MIME type is derived from the file extension of `filename` via
-[`auto_mime`](@ref). Note that `mime` is an optional *positional* argument.
+[`auto_mime`](@ref). Note that `mime` is an optional positional argument, not
+a keyword argument.
 
-The standard
-
-```julia
-write(filename, inventory)
-```
-
-is equivalent to
+The standard [`write(filename, inventory)`](@extref Julia Base.write) is
+equivalent to
 
 ```julia
 write_inventory(filename, inventory, MIME("application/x-sphinxobj"))
@@ -415,17 +499,30 @@ write_inventory(filename, inventory, MIME("application/x-sphinxobj"))
   – return the MIME representation of `inventory` as a string.
 """
 function write_inventory(filename::AbstractString, inventory, mime=auto_mime(filename))
+    local data
     mime = MIME(mime)
+    mime_str = string(mime)
+    compressed = false
+    gzip_suffix = "+gzip"
+    if endswith(mime_str, gzip_suffix)
+        mime = MIME(chop(mime_str, tail=length(gzip_suffix)))  # inner MIME
+        compressed = true
+    end
     try
-        write(filename, repr(mime, inventory))
-    catch exc
-        if exc isa MethodError
-            msg = "Invalid mime format $(mime)."
-            @error msg exception=exc
-            rethrow(ArgumentError(msg))
-        else
-            rethrow()
+        data = repr(mime, inventory)  # -> Base.show(io, mime, inventory)
+    catch exception
+        msg = _unknown_mime_msg(mime)
+        @error msg MIME_TYPES exception
+        rethrow()
+    end
+    if compressed
+        open(filename, "w") do io
+            io_compressed = GzipCompressorStream(io)
+            write(io_compressed, data)
+            close(io_compressed)
         end
+    else
+        write(filename, data)
     end
 end
 
@@ -442,8 +539,6 @@ function write_inventory(
 )
     write(filename, inventory)
 end
-
-# TODO: implement toml input/output format
 
 
 """Find an item in the inventory.

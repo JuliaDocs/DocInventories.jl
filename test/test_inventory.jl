@@ -2,6 +2,7 @@ using Test
 using TestingUtilities: @Test
 using DocInventories
 using DocInventories: uri, spec, find_in_inventory, write_inventory
+using DocInventories: InventoryFormatError
 using Downloads: RequestError
 using IOCapture: IOCapture
 
@@ -37,26 +38,140 @@ end
         # happen "in the wild" (as this example demonstrates). We're making
         # sure that we can properly parse inventories with such extra lines.
         # Other libraries (https://github.com/bskinn/sphobjinv) do not!
-    catch exc
-        @warn "Cannot read online inventory in test" exception = exc
+    catch exception
+        @warn "Cannot read online inventory in test" exception
     end
 
 end
 
+
 @testset "Read invalid" begin
+
     @test_throws RequestError begin
-        Inventory("http://noexist.michaelgoerz.net/"; timeout=0.01, retries=1)
+        Inventory("http://noexist.michaelgoerz.net/ojects.inv"; timeout=0.01, retries=1)
     end
-    c = IOCapture.capture(rethrow=Union{}) do
-        # example.com should respond with an html file, which is invalid data
-        # for an inventory
-        Inventory("http://example.com")
+
+    mktempdir() do tempdir
+
+        filename = joinpath(tempdir, "does_not_exist.inv")
+        @test_throws SystemError begin
+            Inventory(filename)
+        end
+
+        filename = joinpath(tempdir, "does_not_exist.unknown")
+        c = IOCapture.capture(rethrow=Union{}) do
+            Inventory(filename)
+        end
+        @test c.value isa ArgumentError
+        @test contains(c.output, "Cannot determine MIME type")
+
+        filename = joinpath(tempdir, "sometext.txt")
+        #!format: off
+        write(filename, """
+        # This is a text file that is not a Sphinx inventory.
+        """)
+        #!format: on
+        c = IOCapture.capture(rethrow=Union{}) do
+            Inventory(filename)
+        end
+        @test c.value isa InventoryFormatError
+        @test contains(
+            c.output,
+            "Invalid Sphinx header line. Must be \"# Sphinx inventory version 2\""
+        )
+        c = IOCapture.capture(rethrow=Union{}) do
+            Inventory(filename; mime="application/toml")
+        end
+        @test contains(c.output, "Invalid TOML inventory")
+
+        filename = joinpath(tempdir, "incomplete.txt")
+        #!format: off
+        write(filename, """
+        # Sphinx inventory version 2
+        """)
+        #!format: on
+        c = IOCapture.capture(rethrow=Union{}) do
+            Inventory(filename)
+        end
+        @test c.value isa InventoryFormatError
+        @test contains(c.output, "Invalid project name line")
+
+        filename = joinpath(tempdir, "invalid_version.txt")
+        #!format: off
+        write(filename, """
+        # Sphinx inventory version 2
+        # Project: Test
+        # Version 1.0
+        """)
+        #!format: on
+        c = IOCapture.capture(rethrow=Union{}) do
+            Inventory(filename)
+        end
+        @test c.value isa InventoryFormatError
+        @test contains(c.output, "Invalid project version line")
+
+        filename = joinpath(tempdir, "invalid_compression_line.txt")
+        #!format: off
+        write(filename, """
+        # Sphinx inventory version 2
+        # Project: Test
+        # Version: 1.0
+        # This is not a valid compression line
+        """)
+        #!format: on
+        c = IOCapture.capture(rethrow=Union{}) do
+            Inventory(filename)
+        end
+        @test c.value isa InventoryFormatError
+        @test contains(c.output, "Invalid compression line")
+
+        filename = joinpath(tempdir, "invalid_data.txt")
+        #!format: off
+        write(filename, """
+        # Sphinx inventory version 2
+        # Project: Test
+        # Version: 1.0
+        # The remainder of this file would be compressed using zlib.
+        This is just
+        a bunch of text,
+        but no valid InventoryItem data
+        """)
+        #!format: on
+        c = IOCapture.capture(rethrow=Union{}) do
+            Inventory(filename)
+        end
+        @test c.value isa InventoryFormatError
+        @test contains(c.output, "Unexpected line")
+
     end
-    if c.value isa ArgumentError
-        @test contains(c.value.msg, "Invalid compressed data")
-    else
-        @warn "Cannot test reading from example.com" exception = c.value
+
+end
+
+@testset "Empty inventory" begin
+
+    mktempdir() do tempdir
+
+        empty = Inventory(project="empty")
+        @test isempty(empty)
+        filename = joinpath(tempdir, "empty.inv")
+        write(filename, empty)
+        @test contains(read(filename, String), "# This file is empty")
+        empty = Inventory(filename)
+        @test isempty(empty)
+
+        filename = joinpath(tempdir, "empty.txt")
+        write_inventory(filename, empty)
+        @test contains(read(filename, String), "# This file is empty")
+        empty = Inventory(filename)
+        @test isempty(empty)
+
+        filename = joinpath(tempdir, "empty.toml")
+        write_inventory(filename, empty)
+        empty = Inventory(filename)
+        @test isempty(empty)
+
     end
+
 end
 
 
@@ -233,59 +348,90 @@ end
         inventory,
         InventoryItem(":jl:func:`a`" => "#\$"),
         InventoryItem(":jl:type:`A`" => "#\$"),
+        InventoryItem(":std:label:`Introduction`" => "#\$"),
+        InventoryItem(":std:label:`section-2`" => "#\$", dispname="Section 2"),
     )
-    @test length(inventory) == 2
+    @test length(inventory) == 4
     @test !inventory.sorted
 
     mktempdir() do tempdir
 
-        filename = tempname(tempdir; cleanup=false)
-        write(filename, inventory)  # default format
-        readinv = Inventory(filename)
-        @test length(readinv) == 2
-        @test readinv.sorted
-        readinv = Inventory(filename; mime="application/x-sphinxobj")
-        @test length(readinv) == 2
-
         filename = joinpath(tempdir, "objects.inv")
         write_inventory(filename, inventory)  # auto-mime
-        readinv = Inventory(filename; mime="application/x-sphinxobj")
-        @test length(readinv) == 2
+        readinv = Inventory(filename)
+        @test length(readinv) == 4
         @test readinv.sorted
+        readinv = Inventory(filename; mime="application/x-sphinxobj")
+        @test length(readinv) == 4
+        @test readinv.sorted
+        @test readinv[":std:label:`Introduction`"].priority == -1
+        @test readinv[":jl:func:`a`"].priority == 1
+        @test readinv[":std:label:`section-2`"].dispname == "Section 2"
 
         filename = joinpath(tempdir, "objects.txt")  # inappropriate extension
         write_inventory(filename, inventory, "application/x-sphinxobj")
         readinv = Inventory(filename; mime="application/x-sphinxobj")
-        @test length(readinv) == 2
+        @test length(readinv) == 4
 
         filename = joinpath(tempdir, "objects.txt")
         write_inventory(filename, inventory)  # auto-mime
         readinv = Inventory(filename; mime="text/plain")
-        @test length(readinv) == 2
+        @test length(readinv) == 4
+
+        filename = joinpath(tempdir, "objects.toml")
+        write_inventory(filename, inventory)  # auto-mime
+        readinv = Inventory(filename; mime="application/toml")
+        @test length(readinv) == 4
 
         filename = joinpath(tempdir, "objects.inv")  # inappropriate extension
         write_inventory(filename, inventory, "text/plain")
         readinv = Inventory(filename; mime="text/plain")
-        @test length(readinv) == 2
+        @test length(readinv) == 4
+
+        filename = joinpath(tempdir, "objects.txt")  # inappropriate extension
+        write_inventory(filename, inventory, "application/toml")
+        readinv = Inventory(filename; mime="application/toml")
+        @test length(readinv) == 4
+        @test readinv[":std:label:`Introduction`"].priority == -1
+        @test readinv[":jl:func:`a`"].priority == 1
+        @test readinv[":std:label:`section-2`"].dispname == "Section 2"
+
+        filename = joinpath(tempdir, "objects.txt.gz")
+        write_inventory(filename, inventory)
+        readinv = Inventory(filename)
+        @test length(readinv) == 4
+
+        filename = joinpath(tempdir, "objects.toml.gz")
+        write_inventory(filename, inventory)
+        readinv = Inventory(filename)
+        @test length(readinv) == 4
 
         filename = tempname(tempdir; cleanup=false)
         c = IOCapture.capture(rethrow=Union{}) do
             write_inventory(filename, inventory, "application/x-invalid")
         end
-        @test c.value isa ArgumentError
-        if c.value isa ArgumentError
-            @test contains(c.value.msg, "Invalid mime format")
-        end
+        @test c.value isa MethodError
+        @test contains(c.output, "requires the following")
 
-        filename = tempname(tempdir; cleanup=false)
+        filename = joinpath(tempdir, "objects.inv")
         write_inventory(filename, inventory)
         c = IOCapture.capture(rethrow=Union{}) do
             Inventory(filename; mime="application/x-invalid")
         end
+        @test contains(c.output, "requires the following")
+        @test contains(c.output, "Invalid mime format application/x-invalid.")
         @test c.value isa ArgumentError
         if c.value isa ArgumentError
-            @test contains(c.value.msg, "Invalid mime format")
+            @test contains(c.value.msg, "Invalid source/mime for loading Inventory")
         end
+
+        filename = joinpath(tempdir, "objects.txt.gz")
+        write_inventory(filename, inventory, "text/plain+gzip")
+        c = IOCapture.capture(rethrow=Union{}) do
+            Inventory(filename; mime="text/plain")
+        end
+        @test contains(c.output, "Only v2 objects.inv files currently supported")
+        @test c.value isa InventoryFormatError
 
     end
 

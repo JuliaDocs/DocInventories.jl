@@ -16,9 +16,9 @@ Pkg.activate("test")
 
 function _instantiate()
     Pkg.develop(path=".")
-    # XXX
-    if isdir("../DocumenterInterLinks.jl/")
-        Pkg.develop(path="../DocumenterInterLinks.jl/")
+    path_DocumenterInterLinks = joinpath("..", "DocumenterInterLinks.jl")
+    if isdir(path_DocumenterInterLinks)
+        Pkg.develop(path=path_DocumenterInterLinks)
     end
 end
 
