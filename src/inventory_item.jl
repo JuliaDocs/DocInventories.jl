@@ -54,10 +54,8 @@ priority=-1)```.
    non-zero length, and must not contain whitespace or a colon.
 
 * `role`: A domain-specific [role](@extref sphinx :term:`role`)
-  ([type](@extref sphinx sphinx.domains.ObjType)). For the `jl` domain, should
-  be one of `"macro"`, `"func"`, `"abstract"`, `"type"`, `"mod"`, or `"obj"`.
-  Must have nonzero length, must match a role/type defined in the domain, and
-  must not contain whitespace.
+  ([type](@extref sphinx sphinx.domains.ObjType)). Must have nonzero length and
+  not contain whitespace.
 
 * `priority`: An integer flag for placement in search results. Used when
   searching in an [`Inventory`](@ref), for item access in an
