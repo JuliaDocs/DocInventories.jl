@@ -1,6 +1,3 @@
-const JULIA_ROLES = Set(["obj", "macro", "func", "abstract", "type", "mod"])
-
-
 @doc raw"""
 An item inside an [`Inventory`](@ref).
 
@@ -29,24 +26,8 @@ item = IventoryItem(
 ```
 
 The `domain` is optional: if ```spec=":role:`name`"```, the `domain` is `"std"`
-for `role="label"` and `"jl"` otherwise.
-
-Moreover,
-
-```julia
-item = IventoryItem(
-    object => uri;
-    dispname=<name>,
-    priority=1
-)
-```
-
-indicates that the docstring for the given `object` is available at the given
-`uri` within the documentation of the package containing `object`. The `name`
-will be the fully qualified name of `object`, and `role` is determined
-automatically based on the type of `object`.
-
-Lastly,
+for `role="label"` or `role="doc"`, and `"jl"` otherwise. The `role` is
+mandatory for code objects. For non-code objects,
 
 ```julia
 item = IventoryItem(
@@ -175,8 +156,8 @@ function _split_domain_role_name(domain_role_name::AbstractString)
         name = chop(name, head=1, tail=1)
     end
     if isnothing(m["role"])
-        # If only a role is given (":func:f"), the `func` syntactically looks
-        # like a domain, according to the regex
+        # If only a role is given (":function:f"), the `func` syntactically
+        # looks like a domain, according to the regex
         role = isnothing(m["domain"]) ? "" : string(m["domain"])
         domain = ""
     else
@@ -184,41 +165,6 @@ function _split_domain_role_name(domain_role_name::AbstractString)
         domain = string(m["domain"])
     end
     return domain, role, name
-end
-
-
-function fully_qualified_name(obj)
-    parent = parentmodule(obj)
-    name = string(nameof(obj))
-    if parent == obj || parent === Main || parent === Core
-        return name
-    else
-        return fully_qualified_name(parent) * "." * name
-    end
-end
-
-
-function get_inventory_role(obj)
-    if obj isa Function
-        if startswith(string(nameof(obj)), "@")
-            return "macro"
-        else
-            return "func"
-        end
-    elseif obj isa DataType
-        if isabstracttype(obj)
-            return "abstract"
-        else
-            return "type"
-        end
-    elseif obj isa UnionAll
-        # Parametric type
-        return "type"
-    elseif obj isa Module
-        return "mod"
-    else
-        return "obj"
-    end
 end
 
 
@@ -233,36 +179,25 @@ end
 
 
 function InventoryItem(pair::Pair; dispname=nothing, priority=nothing)
-    obj_or_spec, uri = pair
-    if obj_or_spec isa AbstractString
-        domain, role, name = _split_domain_role_name(obj_or_spec)
-        dispname = isnothing(dispname) ? name : dispname
-        if isempty(domain)
-            if isempty(role)
-                if endswith(obj_or_spec, "`")
-                    domain = "jl"
-                    role = "obj"
-                else
-                    domain = "std"
-                    role = "label"
-                    name = slugify(name)
-                end
+    spec, uri = pair
+    domain, role, name = _split_domain_role_name(spec)
+    dispname = isnothing(dispname) ? name : dispname
+    if isempty(domain)
+        if isempty(role)
+            if endswith(spec, "`")
+                throw(ArgumentError("No role in $(repr(spec))"))
             else
-                if role in JULIA_ROLES
-                    domain = "jl"
-                elseif role == "label"
-                    domain = "std"
-                else
-                    throw(ArgumentError("Unknown role: $(repr(role))"))
-                end
+                domain = "std"
+                role = "label"
+                name = slugify(name)
+            end
+        else
+            if (role == "label") || (role == "doc")
+                domain = "std"
+            else
+                domain = "jl"
             end
         end
-    else
-        domain = "jl"
-        obj = obj_or_spec
-        name = fully_qualified_name(obj)
-        dispname = isnothing(dispname) ? name : dispname
-        role = get_inventory_role(obj)
     end
     if isnothing(priority)
         priority = (domain == "std") ? -1 : 1

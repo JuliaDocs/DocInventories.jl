@@ -53,7 +53,7 @@ inventory("Sorting and Related Functions")
 Or, with a regular expression, for all Julia functions in `Base` that have `sort` in their name:
 
 ```@example usage
-inventory(r":func:`Base\..*sort.*`")
+inventory(r":function:`Base\..*sort.*`")
 ```
 
 Or, for all linkable items that appear on the page with the relative URI `"manual/workflow-tips/"`

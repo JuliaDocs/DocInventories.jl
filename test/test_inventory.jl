@@ -395,7 +395,7 @@ end
 
     push!(
         inventory,
-        InventoryItem(":jl:func:`a`" => "#\$"),
+        InventoryItem(":jl:function:`a`" => "#\$"),
         InventoryItem(":jl:type:`A`" => "#\$"),
         InventoryItem(":std:label:`Introduction`" => "#\$"),
         InventoryItem(":std:label:`section-2`" => "#\$", dispname="Section 2"),
@@ -414,7 +414,7 @@ end
         @test length(readinv) == 4
         @test readinv.sorted
         @test readinv[":std:label:`Introduction`"].priority == -1
-        @test readinv[":jl:func:`a`"].priority == 1
+        @test readinv[":jl:function:`a`"].priority == 1
         @test readinv[":std:label:`section-2`"].dispname == "Section 2"
 
         filename = joinpath(tempdir, "objects.txt")  # inappropriate extension
@@ -442,7 +442,7 @@ end
         readinv = Inventory(filename; root_url="", mime="application/toml")
         @test length(readinv) == 4
         @test readinv[":std:label:`Introduction`"].priority == -1
-        @test readinv[":jl:func:`a`"].priority == 1
+        @test readinv[":jl:function:`a`"].priority == 1
         @test readinv[":std:label:`section-2`"].dispname == "Section 2"
 
         filename = joinpath(tempdir, "objects.txt.gz")
