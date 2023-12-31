@@ -39,8 +39,8 @@ function Base.show(io::IO, ::MIME"application/toml", inventory::Inventory)
 end
 
 
-function read_inventory(buffer, ::MIME"application/toml")
-    data = TOML.parse(buffer)
+function read_inventory(io::IO, ::MIME"application/toml")
+    data = TOML.parse(io)
     try
         inventory_format = data["Inventory"]["format"]
         if inventory_format != "DocInventories v1"

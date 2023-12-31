@@ -1,7 +1,7 @@
 using Test
 using TestingUtilities: @Test
 using DocInventories
-using DocInventories: uri, spec, find_in_inventory, write_inventory
+using DocInventories: uri, spec, find_in_inventory, split_url, show_full
 using DocInventories: InventoryFormatError
 using Downloads: RequestError
 using IOCapture: IOCapture
@@ -28,10 +28,39 @@ end
     )
     @test inventory.project == "Krotov"
     @test inventory.version == "1.2.1"
+    default_repl_repr = repr("text/plain", inventory; context=(:limit => true))
+    @Test default_repl_repr == raw"""
+    Inventory(
+     project="Krotov",
+     version="1.2.1",
+     root_url="https://qucontrol.github.io/krotov/v1.2.1/",
+     items=[
+      InventoryItem(":std:label:`/01_overview.rst`" => "01_overview.html", dispname="Krotov Python Package"),
+      InventoryItem(":std:label:`/01_overview.rst#citing-the-krotov-package`" => "01_overview.html#citing-the-krotov-package", dispname="Citing the Krotov Package"),
+      InventoryItem(":std:label:`/01_overview.rst#installation`" => "01_overview.html#installation", dispname="Installation"),
+      InventoryItem(":std:label:`/01_overview.rst#krotov-python-package`" => "01_overview.html#krotov-python-package", dispname="Krotov Python Package"),
+      InventoryItem(":std:label:`/01_overview.rst#prerequisites`" => "01_overview.html#prerequisites", dispname="Prerequisites"),
+      ⋮ (507 elements in total)
+      InventoryItem(":std:label:`py-modindex`" => "py-modindex.html", dispname="Python Module Index"),
+      InventoryItem(":std:label:`search`" => "search.html", dispname="Search Page"),
+      InventoryItem(":std:label:`secondorderupdate`" => "07_krotovs_method.html#\$", dispname="Second order update"),
+      InventoryItem(":std:label:`timediscretization`" => "07_krotovs_method.html#\$", dispname="Time discretization"),
+      InventoryItem(":std:label:`using-krotov-with-qutip`" => "08_qutip_usage.html#\$", dispname="Using Krotov with QuTiP"),
+      InventoryItem(":std:label:`write-documentation`" => "02_contributing.html#\$", dispname="Write Documentation"),
+     ]
+    )
+    """
+
+    c = IOCapture.capture() do
+        show_full(inventory)
+    end
+    @test length(c.output) > 50_000
 
     try
         inventory = Inventory("https://qucontrol.github.io/krotov/v1.2.1/objects.inv")
         @test inventory.project == "Krotov"
+        @test inventory.root_url == "https://qucontrol.github.io/krotov/v1.2.1/"
+        @test startswith(uri(inventory, spec(inventory[1])), inventory.root_url)
         fig_label = inventory[":std:label:`figoctdecisiontree`"].dispname
         @test length(split(fig_label, "\n")) > 10
         # It's unusual for a `dispname` to span multiple lines, but it does
@@ -51,16 +80,24 @@ end
         Inventory("http://noexist.michaelgoerz.net/ojects.inv"; timeout=0.01, retries=1)
     end
 
+    url = "ftp://qucontrol.github.io/krotov/v1.2.1/objects.inv"
+    @test_throws ArgumentError begin
+        split_url(url)
+    end
+    @test_throws SystemError begin
+        Inventory(url; root_url="")
+    end
+
     mktempdir() do tempdir
 
         filename = joinpath(tempdir, "does_not_exist.inv")
         @test_throws SystemError begin
-            Inventory(filename)
+            Inventory(filename; root_url="")
         end
 
         filename = joinpath(tempdir, "does_not_exist.unknown")
         c = IOCapture.capture(rethrow=Union{}) do
-            Inventory(filename)
+            Inventory(filename; root_url="")
         end
         @test c.value isa ArgumentError
         @test contains(c.output, "Cannot determine MIME type")
@@ -75,12 +112,13 @@ end
             Inventory(filename)
         end
         @test c.value isa InventoryFormatError
+        @test contains(c.output, "Empty root url")
         @test contains(
             c.output,
             "Invalid Sphinx header line. Must be \"# Sphinx inventory version 2\""
         )
         c = IOCapture.capture(rethrow=Union{}) do
-            Inventory(filename; mime="application/toml")
+            Inventory(filename; root_url="", mime="application/toml")
         end
         @test contains(c.output, "Invalid TOML inventory")
 
@@ -91,7 +129,7 @@ end
         """)
         #!format: on
         c = IOCapture.capture(rethrow=Union{}) do
-            Inventory(filename)
+            Inventory(filename; root_url="")
         end
         @test c.value isa InventoryFormatError
         @test contains(c.output, "Invalid project name line")
@@ -105,7 +143,7 @@ end
         """)
         #!format: on
         c = IOCapture.capture(rethrow=Union{}) do
-            Inventory(filename)
+            Inventory(filename; root_url="")
         end
         @test c.value isa InventoryFormatError
         @test contains(c.output, "Invalid project version line")
@@ -120,7 +158,7 @@ end
         """)
         #!format: on
         c = IOCapture.capture(rethrow=Union{}) do
-            Inventory(filename)
+            Inventory(filename; root_url="")
         end
         @test c.value isa InventoryFormatError
         @test contains(c.output, "Invalid compression line")
@@ -138,7 +176,7 @@ end
         """)
         #!format: on
         c = IOCapture.capture(rethrow=Union{}) do
-            Inventory(filename)
+            Inventory(filename; root_url="")
         end
         @test c.value isa InventoryFormatError
         @test contains(c.output, "Unexpected line")
@@ -154,20 +192,20 @@ end
         empty = Inventory(project="empty")
         @test isempty(empty)
         filename = joinpath(tempdir, "empty.inv")
-        write(filename, empty)
+        DocInventories.save(filename, empty)
         @test contains(read(filename, String), "# This file is empty")
-        empty = Inventory(filename)
+        empty = Inventory(filename; root_url="")
         @test isempty(empty)
 
         filename = joinpath(tempdir, "empty.txt")
-        write_inventory(filename, empty)
+        DocInventories.save(filename, empty)
         @test contains(read(filename, String), "# This file is empty")
-        empty = Inventory(filename)
+        empty = Inventory(filename; root_url="")
         @test isempty(empty)
 
         filename = joinpath(tempdir, "empty.toml")
-        write_inventory(filename, empty)
-        empty = Inventory(filename)
+        DocInventories.save(filename, empty)
+        empty = Inventory(filename; root_url="")
         @test isempty(empty)
 
     end
@@ -192,9 +230,9 @@ end
         InventoryItem("reStructuredText" => "ReStructuredText")
     )
     @Test repr(inventory) ==
-          "Inventory(\"WP\", \"\", InventoryItem[InventoryItem(\":std:label:`Sphinx`\" => \"Sphinx_(documentation_generator)\", priority=-1), InventoryItem(\":std:label:`reStructuredText`\" => \"ReStructuredText\", priority=-1)], \"https://en.wikipedia.org/wiki/\", \"\", false)"
+          "Inventory(\"WP\", \"\", InventoryItem[InventoryItem(\":std:label:`Sphinx`\" => \"Sphinx_(documentation_generator)\"), InventoryItem(\":std:label:`reStructuredText`\" => \"ReStructuredText\")], \"https://en.wikipedia.org/wiki/\", \"\", false)"
     @Test repr("text/plain", inventory) ==
-          "# Sphinx inventory version 2\n# Project: WP\n# Version: \n# The remainder of this file would be compressed using zlib.\nSphinx std:label -1 Sphinx_(documentation_generator) -\nreStructuredText std:label -1 ReStructuredText -\n"
+          "Inventory(\n project=\"WP\",\n version=\"\",\n root_url=\"https://en.wikipedia.org/wiki/\",\n items=[\n  InventoryItem(\":std:label:`Sphinx`\" => \"Sphinx_(documentation_generator)\"),\n  InventoryItem(\":std:label:`reStructuredText`\" => \"ReStructuredText\"),\n ]\n)\n"
     append!(
         inventory,
         [
@@ -217,9 +255,10 @@ end
     @test length(items_with_parenthesis) == 3
     _inventory = sort(inventory)
     @test _inventory.sorted
+    @test sort(_inventory).sorted
     mktempdir() do tempdir
         filename = joinpath(tempdir, "objects.inv")
-        write(filename, inventory)
+        DocInventories.save(filename, inventory)
         inventory = Inventory(filename; root_url="https://en.wikipedia.org/wiki/")
     end
     @test inventory.sorted
@@ -236,9 +275,16 @@ end
           "https://en.wikipedia.org/wiki/Julia_(programming_language)"
     items_with_parenthesis = inventory(r"uri=.*\(.*\)")
     @test length(items_with_parenthesis) == 3
-    inventory = filter(it -> startswith(it.uri, "Category"), inventory)
+    inventory = sort(
+        Inventory(
+            project=inventory.project,
+            version=inventory.version,
+            root_url=inventory.root_url,
+            items=filter(it -> startswith(it.uri, "Category"), collect(inventory))
+        )
+    )
     @test length(inventory) == 2
-    @test contains(inventory.source, "filtered")
+    @test inventory.source == ""
     @test inventory.sorted
     @test spec(inventory[1]) == ":std:label:`Lightweight-markup-languages`"
     append!(
@@ -268,20 +314,24 @@ end
         InventoryItem(":bar:b:`A`" => "#\$"; priority=0),
         InventoryItem(":bar:c:`A`" => "#\$"; priority=-1),
     )
-    @Test repr("text/plain", inventory) == raw"""
-    # Sphinx inventory version 2
-    # Project: Search
-    # Version: 1.0
-    # The remainder of this file would be compressed using zlib.
-    A foo:a -1 #$ -
-    A foo:b 0 #$ -
-    A foo:c 1 #$ -
-    B foo:a 1 #$ -
-    C foo:a 1 #$ -
-    A bar:a 2 #$ -
-    A bar:b 0 #$ -
-    A bar:c -1 #$ -
+    expected = raw"""
+    Inventory(
+     project="Search",
+     version="1.0",
+     root_url="",
+     items=[
+      InventoryItem(":foo:a:`A`" => "#\$", priority=-1),
+      InventoryItem(":foo:b:`A`" => "#\$", priority=0),
+      InventoryItem(":foo:c:`A`" => "#\$"),
+      InventoryItem(":foo:a:`B`" => "#\$"),
+      InventoryItem(":foo:a:`C`" => "#\$"),
+      InventoryItem(":bar:a:`A`" => "#\$", priority=2),
+      InventoryItem(":bar:b:`A`" => "#\$", priority=0),
+      InventoryItem(":bar:c:`A`" => "#\$", priority=-1),
+     ]
+    )
     """
+    @Test repr("text/plain", inventory) == expected
     @test !inventory.sorted
 
     found = inventory("`A`")
@@ -322,20 +372,19 @@ end
     end
     @test !contains(c.output, "Cannot find item")
 
-    @test find_in_inventory(inventory, "A"; domain="foo", quiet=true) ==
-          inventory[":foo:b:`A`"]
-    @test find_in_inventory(inventory, "A"; domain="foo", role="c", quiet=true) ==
-          inventory[":foo:c:`A`"]
-    @test isnothing(
-        find_in_inventory(
-            inventory,
-            "A";
-            domain="foo",
-            role="a",
-            include_hidden_priority=false,
-            quiet=true
-        )
+    found = find_in_inventory(inventory, "A"; domain="foo", quiet=true)
+    @test found == inventory[":foo:b:`A`"]
+    found = find_in_inventory(inventory, "A"; domain="foo", role="c", quiet=true)
+    @test found == inventory[":foo:c:`A`"]
+    found = find_in_inventory(
+        inventory,
+        "A";
+        domain="foo",
+        role="a",
+        include_hidden_priority=false,
+        quiet=true
     )
+    @test isnothing(found)
 
 end
 
@@ -357,11 +406,11 @@ end
     mktempdir() do tempdir
 
         filename = joinpath(tempdir, "objects.inv")
-        write_inventory(filename, inventory)  # auto-mime
-        readinv = Inventory(filename)
+        DocInventories.save(filename, inventory)  # auto-mime
+        readinv = Inventory(filename; root_url="")
         @test length(readinv) == 4
         @test readinv.sorted
-        readinv = Inventory(filename; mime="application/x-sphinxobj")
+        readinv = Inventory(filename; root_url="", mime="application/x-intersphinx")
         @test length(readinv) == 4
         @test readinv.sorted
         @test readinv[":std:label:`Introduction`"].priority == -1
@@ -369,54 +418,54 @@ end
         @test readinv[":std:label:`section-2`"].dispname == "Section 2"
 
         filename = joinpath(tempdir, "objects.txt")  # inappropriate extension
-        write_inventory(filename, inventory, "application/x-sphinxobj")
-        readinv = Inventory(filename; mime="application/x-sphinxobj")
+        DocInventories.save(filename, inventory, "application/x-intersphinx")
+        readinv = Inventory(filename; root_url="", mime="application/x-intersphinx")
         @test length(readinv) == 4
 
         filename = joinpath(tempdir, "objects.txt")
-        write_inventory(filename, inventory)  # auto-mime
-        readinv = Inventory(filename; mime="text/plain")
+        DocInventories.save(filename, inventory)  # auto-mime
+        readinv = Inventory(filename; root_url="", mime="text/x-intersphinx")
         @test length(readinv) == 4
 
         filename = joinpath(tempdir, "objects.toml")
-        write_inventory(filename, inventory)  # auto-mime
-        readinv = Inventory(filename; mime="application/toml")
+        DocInventories.save(filename, inventory)  # auto-mime
+        readinv = Inventory(filename; root_url="", mime="application/toml")
         @test length(readinv) == 4
 
         filename = joinpath(tempdir, "objects.inv")  # inappropriate extension
-        write_inventory(filename, inventory, "text/plain")
-        readinv = Inventory(filename; mime="text/plain")
+        DocInventories.save(filename, inventory, "text/x-intersphinx")
+        readinv = Inventory(filename; root_url="", mime="text/x-intersphinx")
         @test length(readinv) == 4
 
         filename = joinpath(tempdir, "objects.txt")  # inappropriate extension
-        write_inventory(filename, inventory, "application/toml")
-        readinv = Inventory(filename; mime="application/toml")
+        DocInventories.save(filename, inventory, "application/toml")
+        readinv = Inventory(filename; root_url="", mime="application/toml")
         @test length(readinv) == 4
         @test readinv[":std:label:`Introduction`"].priority == -1
         @test readinv[":jl:func:`a`"].priority == 1
         @test readinv[":std:label:`section-2`"].dispname == "Section 2"
 
         filename = joinpath(tempdir, "objects.txt.gz")
-        write_inventory(filename, inventory)
-        readinv = Inventory(filename)
+        DocInventories.save(filename, inventory)
+        readinv = Inventory(filename; root_url="")
         @test length(readinv) == 4
 
         filename = joinpath(tempdir, "objects.toml.gz")
-        write_inventory(filename, inventory)
-        readinv = Inventory(filename)
+        DocInventories.save(filename, inventory)
+        readinv = Inventory(filename; root_url="")
         @test length(readinv) == 4
 
         filename = tempname(tempdir; cleanup=false)
         c = IOCapture.capture(rethrow=Union{}) do
-            write_inventory(filename, inventory, "application/x-invalid")
+            DocInventories.save(filename, inventory, "application/x-invalid")
         end
         @test c.value isa MethodError
         @test contains(c.output, "requires the following")
 
         filename = joinpath(tempdir, "objects.inv")
-        write_inventory(filename, inventory)
+        DocInventories.save(filename, inventory)
         c = IOCapture.capture(rethrow=Union{}) do
-            Inventory(filename; mime="application/x-invalid")
+            Inventory(filename; root_url="", mime="application/x-invalid")
         end
         @test contains(c.output, "requires the following")
         @test contains(c.output, "Invalid mime format application/x-invalid.")
@@ -426,9 +475,9 @@ end
         end
 
         filename = joinpath(tempdir, "objects.txt.gz")
-        write_inventory(filename, inventory, "text/plain+gzip")
+        DocInventories.save(filename, inventory, "text/x-intersphinx+gzip")
         c = IOCapture.capture(rethrow=Union{}) do
-            Inventory(filename; mime="text/plain")
+            Inventory(filename; root_url="", mime="text/x-intersphinx")
         end
         @test contains(c.output, "Only v2 objects.inv files currently supported")
         @test c.value isa InventoryFormatError

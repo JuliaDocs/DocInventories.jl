@@ -1,77 +1,18 @@
-using CodecZlib
-using Downloads: Downloads
-
-
-const rx_project = r"""
-    ^                  # Start of line
-    [#][ ]Project:[ ]  # Preamble
-    (?P<project>.*)    # Rest of line is project name
-    $                  # End of line
-"""x
-
-const rx_version = r"""
-    ^                   # Start of line
-    [#][ ]Version:[ ]   # Preamble
-    (?P<version>.*)     # Rest of line is version
-    $                   # End of line
-"""x
-
-const rx_data = r"""
-    ^                    # Start of line
-    (?P<name>.+?)        # --> Name
-    \s+                  # Dividing space
-    (?P<domain>[^\s:]+)  # --> Domain
-    :                    # Dividing colon
-    (?P<role>[^\s]+)     # --> Role
-    \s+                  # Dividing space
-    (?P<priority>-?\d+)  # --> Priority
-    \s+?                 # Dividing space
-    (?P<uri>\S*)         # --> URI
-    \s+                  # Dividing space
-    (?P<dispname>.+)     # --> Display name
-    $                    # End of line
-"""x
-
-
-"""An error indicating an issue with an `objects.inv` file.
+"""An inventory link targets in a project documentation.
 
 ```julia
-throw(InventoryFormatError(msg))
-```
-"""
-struct InventoryFormatError <: Exception
-    msg::String
-end
-
-
-function _read_url(url; timeout=1.0, retries=3, wait_time=1.0)
-    attempt = 0
-    while true
-        try
-            return take!(Downloads.download(url, IOBuffer(); timeout))
-        catch exc
-            attempt += 1
-            if attempt >= retries
-                rethrow()
-            else
-                sleep(wait_time * attempt)
-            end
-        end
-    end
-end
-
-
-"""An inventory of objects and link targets in a project documentation.
-
-```julia
-inventory = Inventory(source; mime=auto_mime(source), root_url="")
+inventory = Inventory(
+    source;
+    mime=auto_mime(source),
+    root_url=root_url(source)
+)
 ```
 
 loads an inventory file from the given `source`, which can be a URL or the path
 to a local file. If it is a URL, the options `timeout` (seconds to wait for
 network connections), `retries` (number of times to retry) and `wait_time`
 (seconds longer to wait between each retry) may be given. The `source` must
-contain data in the given mime type. By default the mime type is derived from
+contain data in the given mime type. By default, the mime type is derived from
 the file extension, via [`auto_mime`](@ref).
 
 The `Inventory` acts as a collection of [`InventoryItems`](@ref InventoryItem),
@@ -81,11 +22,14 @@ documentation of a project.
 Alternatively,
 
 ```julia
-inventory = Inventory(; project, version="", root_url="")
+inventory = Inventory(; project, version="", root_url="", items=[])
 ```
 
-with a mandatory `project` argument instantiates an empty inventory to which
-[`InventoryItems`](@ref InventoryItem) can then subsequentyly be pushed.
+with a mandatory `project` argument instantiates an `inventory` with the
+[`IventoryItems`](@ref InventoryItem) in `items`. If `items` is not given, the
+resulting empty `inventory` can have [`InventoryItems`](@ref InventoryItem)
+added afterwards via [`push!](@extref Julia Base.push!).
+
 
 # Attributes
 
@@ -130,18 +74,11 @@ The search results are sorted by [`abs(item.priority)`](@ref InventoryItem). If
 
 * [`find_in_inventory(inventory, name)`](@ref find_in_inventory)
   – find a single item in the `inventory`
-* [`filter(f, ::Inventory)`](@ref)] – filter the `inventory` for
-  matching items.
-* [`collect(inventory)`](@extref Julia Base.collect-Tuple{Any}) – convert the
-  `inventory` into a vector of [`InventoryItems`](@ref InventoryItem).
-* [`write_inventory(filename, inventory, [mime])`](@ref write_inventory)
+* [`save(filename, inventory; mime=auto_mime(filename))`](@ref save)
   – write the `inventory` to a file in any supported output format.
-* [`write("objects.inv", inventory)`](@extref Julia Base.write) – write the
-  `inventory` to a binary file in the default `Sphinx inventory version 2`
-  format.
-* [`repr("text/plain", inventory)`](@extref Julia `Base.repr-Tuple{MIME, Any}`)
-  – obtain an uncompressed representation of the default `Sphinx inventory
-  version 2` format.
+* [`show_full(inventory)`](@ref) – show the unabbreviated inventory in the
+  REPL (ideally via
+  [`TerminalPager`](https://ronisbr.github.io/TerminalPager.jl/))
 * [`uri(inventory, key)`](@ref uri(::Inventory, key)) – obtain the full URI for
   an item from the `inventory`.
 * [`push!(inventory, items...)`](@extref Julia Base.push!) – add
@@ -149,6 +86,8 @@ The search results are sorted by [`abs(item.priority)`](@ref InventoryItem). If
 * [`append!(inventory, collections...)`](@extref Julia Base.append!) – add
   collections of [`InventoryItems`](@ref InventoryItem) to an existing
   `inventory`.
+* [`sort(inventory)`](@extref Julia Base.sort) – convert an unsorted inventory
+  into a sorted one.
 """
 struct Inventory
     project::String
@@ -160,98 +99,14 @@ struct Inventory
 end
 
 
-function Inventory(; project, version="", root_url="")
-    Inventory(project, string(version), InventoryItem[], root_url, "", false)
+function Inventory(; project, version="", root_url="", items=InventoryItem[])
+    Inventory(project, string(version), items, root_url, "", false)
 end
-
-
-"""Default map of file extensions to MIME types.
-
-```julia
-MIME_TYPES = Dict(
-    ".txt" => MIME("text/plain"),
-    ".inv" => MIME("application/x-sphinxobj"),
-    ".toml" => MIME("application/toml"),
-    ".txt.gz" => MIME("text/plain+gzip"),
-    ".toml.gz" => MIME("application/toml+gzip"),
-)
-```
-"""
-const MIME_TYPES = Dict(
-    ".txt" => MIME("text/plain"),
-    ".inv" => MIME("application/x-sphinxobj"),
-    ".toml" => MIME("application/toml"),  # see toml_format.jl
-    ".txt.gz" => MIME("text/plain+gzip"),
-    ".toml.gz" => MIME("application/toml+gzip"),
-)
-
-
-# Split off all extensions (e.g., `".toml.gz"`), not just the last one
-# (`".gz"`)
-function splitfullext(filepath::String)
-    root, ext = splitext(filepath)
-    full_ext = ext
-
-    # Keep splitting until no more extensions are found
-    while ext != ""
-        root, ext = splitext(root)
-        (ext == "") && break
-        full_ext = ext * full_ext
-    end
-    return root, full_ext
-end
-
-
-"""
-Determine the MIME type of the given file path or URL from the file extension.
-
-```julia
-mime = auto_mime(source)
-```
-
-returns a [`MIME` type](@extref Julia Base.Multimedia.MIME) from the extension
-of `source`. The default mapping is in [`MIME_TYPES`](@ref).
-
-Unknown or unsupported extensions throw an `ArgumentError`.
-"""
-function auto_mime(source)
-    try
-        ext = splitfullext(source)[2]
-        return MIME_TYPES[ext]
-    catch exception
-        msg = ("Cannot determine MIME type for $(repr(source)): $exception")
-        @error msg MIME_TYPES
-        rethrow(ArgumentError(msg))
-    end
-end
-
-
-function _unknown_mime_msg(mime)
-    """
-    Reading and writing an inventory file with a custom MIME type
-    requires the following:
-
-    * `DocInventories.MIME_TYPES` should contain a mapping from the
-      appropritate file extension to the MIME type.
-    * A method `DocInventories.read_inventory(buffer, mime)` must be
-      implemented for mime::MIME$(repr(string(mime))) and return a string
-      `project`, a string `version`, and a list `items` of `InventoryItem`
-      instances.
-    * A method `Base.show(io::IO, mime, inventory)` must be be implemented for
-      mime::MIME$(repr(string(mime))).
-
-    Any mime type ending with "+gzip" will automatically delegate to the mime
-    type without the "+gzip" prefix, so that all the above methods can assume
-    uncompressed data.
-
-    """
-end
-
 
 function Inventory(
     source::AbstractString;
     mime=auto_mime(source),
-    root_url="",
+    root_url=root_url(source),
     timeout=1.0,
     retries=3,
     wait_time=1.0
@@ -294,129 +149,10 @@ Base.iterate(inventory::Inventory, state) = iterate(inventory._items, state)
 Base.getindex(inventory::Inventory, ind::Int64) = getindex(inventory._items, ind)
 Base.firstindex(inventory::Inventory) = firstindex(inventory._items)
 Base.lastindex(inventory::Inventory) = lastindex(inventory._items)
+Base.eltype(::Inventory) = InventoryItem
 
 
-function read_inventory(buffer, mime::Any)
-    try
-        mime_str = string(mime)
-        gzip_suffix = "+gzip"
-        if endswith(mime_str, gzip_suffix)
-            inner_mime = MIME(chop(mime_str, tail=length(gzip_suffix)))
-            io_uncompressed = GzipDecompressorStream(buffer)
-            project, version, items = read_inventory(io_uncompressed, inner_mime)
-            close(io_uncompressed)
-            return project, version, items
-        else
-            throw(ArgumentError("Invalid mime format $(mime)."))
-        end
-    catch exception
-        msg = _unknown_mime_msg(mime)
-        @error msg MIME_TYPES exception
-        rethrow()
-    end
-end
-
-
-function read_inventory(buffer, mime::Union{MIME"application/x-sphinxobj",MIME"text/plain"})
-
-    # Keep the four header lines, which are in plain text
-    str = ""
-    for _ = 1:4
-        str *= readline(buffer; keep=true)
-    end
-
-    # Decompress the rest of the file and append decoded text
-    if string(mime) == "application/x-sphinxobj"
-        if !contains(str, "# This file is empty")
-            try
-                str *= String(read(ZlibDecompressorStream(buffer)))
-            catch exc
-                msg = "Invalid compressed data"
-                if exc isa ErrorException
-                    msg *= ": $(exc.msg)"
-                end
-                throw(ArgumentError(msg))
-            end
-        end
-    else
-        @assert string(mime) == "text/plain"
-        str *= read(buffer, String)
-    end
-
-    text_buffer = IOBuffer(str)
-
-    header_line = readline(text_buffer)
-    if !(header_line == "# Sphinx inventory version 2")
-        msg = "Invalid Sphinx header line. Must be \"# Sphinx inventory version 2\""
-        @error msg header_line
-        msg = "Only v2 objects.inv files currently supported"
-        throw(InventoryFormatError(msg))
-
-    end
-
-    project_line = readline(text_buffer)
-    m = match(rx_project, project_line)
-    if isnothing(m)
-        msg = "Invalid project name line: $(repr(project_line))"
-        throw(InventoryFormatError(msg))
-    else
-        project = m["project"]
-    end
-
-    version_line = readline(text_buffer)
-    m = match(rx_version, version_line)
-    if isnothing(m)
-        msg = "Invalid project version line: $(repr(version_line))"
-        throw(InventoryFormatError(msg))
-    else
-        version = m["version"]
-    end
-
-    items = InventoryItem[]
-
-    compression_line = readline(text_buffer)
-    if contains(compression_line, "# This file is empty")
-        return project, version, items
-    end
-    if !contains(compression_line, "zlib")
-        msg = "Invalid compression line $(repr(compression_line))"
-        throw(InventoryFormatError(msg))
-    end
-
-    for line in readlines(text_buffer)
-        m = match(rx_data, line)
-        try
-            if isnothing(m)
-                # Lines that don't fit the pattern for an item may be
-                # continuations of a multi-line `dispname`
-                o = pop!(items)
-                dispname = o.dispname * "\n" * line
-                item = InventoryItem(o.name, o.domain, o.role, o.priority, o.uri, dispname)
-            else
-                item = InventoryItem(;
-                    name=m["name"],
-                    domain=m["domain"],
-                    role=m["role"],
-                    priority=parse(Int64, m["priority"]),
-                    uri=m["uri"],
-                    dispname=m["dispname"],
-                )
-            end
-            push!(items, item)
-        catch exc # probably `pop!` from empty `items`
-            if !(exc isa ArgumentError)
-                @error "Internal Error" exception = (exc, Base.catch_backtrace())
-            end
-            msg = "Unexpected line: $(repr(line))"
-            rethrow(InventoryFormatError(msg))
-        end
-    end
-
-    return project, version, items
-
-end
-
-
+# How an `inventory ` object gets interpolated into a string
 function Base.show(io::IO, inventory::Inventory)
     source = inventory.source
     if isempty(source)
@@ -428,116 +164,78 @@ function Base.show(io::IO, inventory::Inventory)
         print(io, repr(inventory.source), ", ")
         print(io, repr(inventory.sorted), ")")
     else
-        root_url = inventory.root_url
-        if isempty(root_url)
-            print(io, "Inventory($(repr(source)))")
-        else
-            print(io, "Inventory($(repr(source)); root_url=$(repr(root_url)))")
+        write(io, "Inventory($(repr(source))")
+        if inventory.root_url != root_url(inventory.source; warn=false)
+            write(io, "; root_url=$(repr(inventory.root_url))")
         end
+        write(io, ")")
     end
+    nothing
 end
 
 
+# How an `inventory` object shows in the REPL
 function Base.show(io::IO, ::MIME"text/plain", inventory::Inventory)
-    println(io, "# Sphinx inventory version 2")
-    println(io, "# Project: $(inventory.project)")
-    println(io, "# Version: $(inventory.version)")
-    if !isempty(inventory)
-        println(io, "# The remainder of this file would be compressed using zlib.")
-        for item in inventory._items
-            line = "$(item.name) $(item.domain):$(item.role) $(item.priority) $(item.uri) $(item.dispname)\n"
-            write(io, line)
-        end
+    println(io, "Inventory(")
+    println(io, " project=$(repr(inventory.project)),")
+    println(io, " version=$(repr(inventory.version)),")
+    println(io, " root_url=$(repr(inventory.root_url)),")
+    N = length(inventory._items)
+    if N == 0
+        println(io, " items=[]")
     else
-        println(io, "# This file is empty")
+        println(io, " items=[")
+        limit = get(io, :limit, false)
+        N = length(inventory._items)
+        if (N < 15) || !limit
+            for item in inventory
+                write(io, "  ")
+                show(io, item)
+                write(io, ",\n")
+            end
+        else
+            for i = 1:5
+                write(io, "  ")
+                show(io, inventory[i])
+                write(io, ",\n")
+            end
+            println(io, "  ⋮ ($N elements in total)")
+            for i = N-5:N
+                write(io, "  ")
+                show(io, inventory[i])
+                write(io, ",\n")
+            end
+        end
+        println(io, " ]")
     end
+    println(io, ")")
+    nothing
 end
 
 
-function Base.write(io::IO, inventory::Inventory)
-    println(io, "# Sphinx inventory version 2")
-    println(io, "# Project: $(inventory.project)")
-    println(io, "# Version: $(inventory.version)")
-    if !isempty(inventory)
-        println(io, "# The remainder of this file is compressed using zlib.")
-        stream = ZlibCompressorStream(io)
-        for item in inventory._items
-            line = "$(item.name) $(item.domain):$(item.role) $(item.priority) $(item.uri) $(item.dispname)\n"
-            write(stream, line)
-        end
-        close(stream)
-    else
-        println(io, "# This file is empty")
-    end
-end
-
-
-"""Write the [`Inventory`](@ref) to file in the specified format.
+"""Show the entire `inventory`.
 
 ```julia
-write_inventory(filename, inventory, mime=auto_mime(filename))
+show_full(inventory)  # io=stdout
+show_full(io, inventory)
 ```
 
-writes `inventory` to `filename` in the specified MIME type. By default, the
-MIME type is derived from the file extension of `filename` via
-[`auto_mime`](@ref). Note that `mime` is an optional positional argument, not
-a keyword argument.
-
-The standard [`write(filename, inventory)`](@extref Julia Base.write) is
-equivalent to
+is equivalent to
 
 ```julia
-write_inventory(filename, inventory, MIME("application/x-sphinxobj"))
+show(IOContext(io, :limit => false), "text/plain", inventory)
 ```
 
-# See also
-
-* [`show(io, mime, inventory)`](@extref Base.show-Tuple{IO, Any, Any})
-  – write the MIME representation of `inventory` to the given `io` stream
-  (`stdout` by default)
-* [`repr(mime, inventory)`](@extref Julia Base.repr-Tuple{MIME, Any})
-  – return the MIME representation of `inventory` as a string.
+This may produce large output, so you may want to make use of the
+[`TerminalPager`](https://ronisbr.github.io/TerminalPager.jl/)
+package.
 """
-function write_inventory(filename::AbstractString, inventory, mime=auto_mime(filename))
-    local data
-    mime = MIME(mime)
-    mime_str = string(mime)
-    compressed = false
-    gzip_suffix = "+gzip"
-    if endswith(mime_str, gzip_suffix)
-        mime = MIME(chop(mime_str, tail=length(gzip_suffix)))  # inner MIME
-        compressed = true
-    end
-    try
-        data = repr(mime, inventory)  # -> Base.show(io, mime, inventory)
-    catch exception
-        msg = _unknown_mime_msg(mime)
-        @error msg MIME_TYPES exception
-        rethrow()
-    end
-    if compressed
-        open(filename, "w") do io
-            io_compressed = GzipCompressorStream(io)
-            write(io_compressed, data)
-            close(io_compressed)
-        end
-    else
-        write(filename, data)
-    end
+function show_full(inventory)
+    show_full(stdout, inventory)
 end
 
-function write_inventory(filename::AbstractString, inventory, mime::AbstractString)
-    write_inventory(filename, inventory, MIME(mime))
-end
-
-# Note: generally, new inventory formats shouldn't define new methods for
-# `write_inventory`, but instead should define `show(io, mime, inventory)`
-function write_inventory(
-    filename::AbstractString,
-    inventory,
-    ::MIME"application/x-sphinxobj"
-)
-    write(filename, inventory)
+function show_full(io::IO, inventory)
+    show(IOContext(io, :limit => false), "text/plain", inventory)
 end
 
 
@@ -577,7 +275,7 @@ the `inventory` contains no matching item, returns `nothing`.
 
 Note that direct item lookup as [`inventory[spec]`](@ref Inventory) where
 `spec` is a string of the form ```"[:[domain:]role:]`name`"``` is available as
-simplified way to call `find_in_inventory` with `quiet=true`.
+a simplified way to call `find_in_inventory` with `quiet=true`.
 """
 function find_in_inventory(
     inventory,
@@ -695,28 +393,6 @@ function Base.sort(inventory::Inventory)
 end
 
 
-"""Filter an inventory for matching items.
-
-```julia
-filtered_inventory = filter(item -> f(item), inventory)
-```
-
-create a new [`Inventory`](@ref) containing only the [`InventoryItems`](@ref
-InventoryItem) for which `f` returns `true`.
-"""
-function Base.filter(f, inventory::Inventory)
-    items = filter(f, inventory._items)
-    return Inventory(
-        inventory.project,
-        inventory.version,
-        items,
-        inventory.root_url,
-        strip(inventory.source * " (filtered)"),
-        inventory.sorted
-    )
-end
-
-
 """
 ```julia
 uri_str = uri(inventory, key)
@@ -726,4 +402,15 @@ is equivalent to `uri(inventory[key]; root_url=inventory.root_url)`.
 """
 function uri(inventory::Inventory, key)
     return uri(inventory[key]; root_url=inventory.root_url)
+end
+
+
+"""An error indicating an issue with an `objects.inv` file.
+
+```julia
+throw(InventoryFormatError(msg))
+```
+"""
+struct InventoryFormatError <: Exception
+    msg::String
 end

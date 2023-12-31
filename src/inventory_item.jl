@@ -1,4 +1,4 @@
-const JULIA_ROLES = Set(["obj", "macro", "func", "abstract", "type", "mod", "obj"])
+const JULIA_ROLES = Set(["obj", "macro", "func", "abstract", "type", "mod"])
 
 
 @doc raw"""
@@ -72,10 +72,11 @@ priority=-1)```.
    objects, and `"std"` for text objects such as section names. Must have
    non-zero length, and must not contain whitespace or a colon.
 
-* `role`: A domain-specific role. For the `jl` domain, should be one of
-  `"macro"`, `"func"`, `"abstract"`, `"type"`, `"mod"`, or `"obj"`. Must have
-  nonzero length, must match a role defined in the domain, and must not contain
-  whitespace.
+* `role`: A domain-specific [role](@extref sphinx :term:`role`)
+  ([type](@extref sphinx sphinx.domains.ObjType)). For the `jl` domain, should
+  be one of `"macro"`, `"func"`, `"abstract"`, `"type"`, `"mod"`, or `"obj"`.
+  Must have nonzero length, must match a role/type defined in the domain, and
+  must not contain whitespace.
 
 * `priority`: An integer flag for placement in search results. Used when
   searching in an [`Inventory`](@ref), for item access in an
@@ -283,16 +284,22 @@ function Base.show(io::IO, item::InventoryItem)
         write(io, "uri=$(repr(uri(item))), ")
         write(io, "dispname=$(repr(dispname(item)))")
     else
+        has_default_priority = (priority == 1)
+        if domain == "std"
+            has_default_priority = (priority == -1)
+        end
+        has_default_dispname = (item.dispname == "-")
         spec = ":$(domain):$(item.role):`$(item.name)`"
         write(io, repr(spec), " => ", repr(item.uri))
-        if ((domain == "std") && (priority != -1)) || (priority != 1)
+        if !has_default_priority
             write(io, ", priority=$(repr(priority))")
         end
-        if item.dispname != "-"
+        if !has_default_dispname
             write(io, ", dispname=$(repr(item.dispname))")
         end
     end
     write(io, ")")
+    nothing
 end
 
 

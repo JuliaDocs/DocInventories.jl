@@ -1,0 +1,88 @@
+# Usage
+
+
+## Loading Inventories
+
+An [`Inventory`](@ref) object can be instantiated from the URL of an inventory file. For projects whose documentation is generated via [Sphinx](@extref sphinx :doc:`index`) (most Python projects), the inventory file should be `objects.inv` in the root of the online documentation. For example, the inventory file for the popular Python [`matplotlib`](@extref matplotlib :doc:`index`) library would be loaded as
+
+```@example usage
+using DocInventories
+inventory = Inventory("https://matplotlib.org/3.7.3/objects.inv")
+```
+
+To load an inventory from a local file, instantiate [`Inventory`](@ref) with the path to the file and a `root_url`:
+
+```@example usage
+inventory = Inventory(
+    joinpath(@__DIR__, "inventories", "Julia.toml"),
+    root_url="https://docs.julialang.org/en/v1/"
+)
+```
+
+## Inventory Items
+
+Each [`Inventory`](@ref) is a collection of [`InventoryItem`](@ref) objects. We can iterate over these, or look up a particular item with a numerical index or a specification like
+
+```@example usage
+item = inventory["Style-Guide"]
+```
+
+Conceptually, as indicated above, the inventory item maps a [`spec`](@ref DocInventories.spec) to a [`uri`](@ref DocInventories.uri(::InventoryItem)) relative to the `root_url` associated with the [`Inventory`](@ref) containing the item.
+
+The `spec` in the mapping adopts the notation of a ["domain"](@extref sphinx :term:`domain`) and ["role"](@extref sphinx :term:`role`) from [Sphinx](@extref sphinx usage/domains/index):
+
+```@example usage
+show(IOContext(stdout, :full=>true), inventory["Style-Guide"])
+```
+
+This makes [`spec`](@ref DocInventories.spec) reminiscent of the [Sphinx cross-referencing syntax](@extref sphinx xref-syntax)[^1]. When looking up an item, the domain and role part of the specification are optional and serve for disambiguation. The above `item` could also have been obtained with ```inventory[:label:`Style Guide`]``` or ```inventory[:std:label:`Style Guide`]```.
+
+[^1]: We conflate Sphinx' "object types" and "roles". Technically, a Sphinx domain (like the Python `py` domain) has [object types](@extref sphinx sphinx.domains.ObjType) (e.g., `function`) which in turn have one or more associated [roles](@extref sphinx :term:`role`) that are used when referencing the object (e.g., `func`). `DocInventories` has no formal definition of domains/types/roles, so it considers types and roles identical. Consequently, a Sphinx reference ```":py:func:`matplotlib.pyplot.subplots`"``` would correspond to the `DocInventories` spec ```":py:function:`matplotlib.pyplot.subplots`"```.
+
+
+## Exploring Inventories
+
+An [`Inventory`](@ref) instance is a callable that takes a search and returns a list of [`InventoryItems`](@ref InventoryItem) that match the search. This is quite flexible, and takes a string or regular expression that will be compared both against the [`spec`](@ref DocInventories.spec) and the full string representation (`repr(item; context=(:full => true))`) of each item.
+
+Thus, we could search for a title as is appears in the documentation:
+
+```@example usage
+inventory("Sorting and Related Functions")
+```
+
+Or, with a regular expression, for all Julia functions in `Base` that have `sort` in their name:
+
+```@example usage
+inventory(r":func:`Base\..*sort.*`")
+```
+
+Or, for all linkable items that appear on the page with the relative URI `"manual/workflow-tips/"`
+
+```@example usage
+inventory("manual/workflow-tips/")
+```
+
+The search results will be sorted taking into account the `priority` field of the items.
+
+
+## Saving Inventories to File
+
+An inventory can be written to file using the [`DocInventories.save`](@ref) function. For example, to write the inventory in [TOML Format](@ref), use
+
+```@example usage
+DocInventories.save("$(tempname()).toml", inventory)
+```
+
+The MIME type is derived from the extension of the file name, according to the mapping in [`DocInventories.MIME_TYPES`](@ref). The MIME-type can also be passed explicitly to [`save`](@ref DocInventories.save), independent of the file name:
+
+```@example usage
+DocInventories.save(tempname(), inventory; mime="application/toml")
+```
+
+It is also possible to write with compression by appending a `.gz` file extension:
+
+```@example usage
+DocInventories.save("$(tempname()).toml.gz", inventory)
+```
+
+See [Inventory File Formats](@ref) for a description of all available output formats.

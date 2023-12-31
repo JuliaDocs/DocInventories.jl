@@ -12,17 +12,30 @@ GITHUB = "https://github.com/goerz/DocInventories.jl"
 links = InterLinks(
     "Documenter" => (
         "https://documenter.juliadocs.org/stable/",
-        joinpath(@__DIR__, "src", "interlinks", "Documenter.txt")
+        joinpath(@__DIR__, "src", "inventories", "Documenter.toml")
     ),
     "Julia" => (
         "https://docs.julialang.org/en/v1/",
-        joinpath(@__DIR__, "src", "interlinks", "Julia.txt")
+        joinpath(@__DIR__, "src", "inventories", "Julia.toml")
     ),
+    "JuliaDocs" => (
+        "https://github.com/JuliaDocs/",
+        joinpath(@__DIR__, "src", "inventories", "JuliaDocs.toml")
+    ),
+    "matplotlib" => "https://matplotlib.org/3.7.3/",
     "sphinx" => "https://www.sphinx-doc.org/en/master/",
     "sphobjinv" => "https://sphobjinv.readthedocs.io/en/stable/",
 )
 
 println("Starting makedocs")
+
+PAGES = [
+    "Home" => "index.md",
+    "Usage" => "usage.md",
+    "Inventory File Formats" => "formats.md",
+    "Creating Inventory Files" => "creating.md",
+    "API" => "api.md",
+]
 
 makedocs(
     authors=AUTHORS,
@@ -37,7 +50,7 @@ makedocs(
         canonical="https://juliadocs.org/DocInventories.jl",
         footer="[$NAME.jl]($GITHUB) v$VERSION docs powered by [Documenter.jl](https://github.com/JuliaDocs/Documenter.jl).",
     ),
-    pages=["Home" => "index.md", "API" => "api.md",],
+    pages=PAGES,
     plugins=[links]
 )
 
