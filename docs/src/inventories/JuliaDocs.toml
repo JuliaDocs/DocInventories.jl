@@ -1,5 +1,5 @@
 [Inventory]
-format = "DocInventories v1"
+format = "DocInventories v0"
 project = "JuliaDocs"
 version = ""
 

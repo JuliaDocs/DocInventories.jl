@@ -39,12 +39,15 @@ The TOML format is another text output format that is optimized for human readab
 
 ```
 [Inventory]
-format = "DocInventories v1"
+format = "DocInventories v0"
 project = "<project>"
 version = "<version>"
 ```
 
 The `format` line is mandatory and identifies the file as containing inventory data in the format described here.
+
+!!! warning
+    As indicated by the `v0` in the `format` line, the format described here is currently experimental and may change without notice
 
 After that, each [`InventoryItem`](@ref) is represented by a multi-line block of the form
 

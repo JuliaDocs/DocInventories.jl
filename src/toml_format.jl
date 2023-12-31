@@ -27,7 +27,7 @@ function Base.show(io::IO, ::MIME"application/toml", inventory::Inventory)
 
     toml_dict = Dict(
         "Inventory" => Dict(
-            "format" => "DocInventories v1",
+            "format" => "DocInventories v0",
             "project" => inventory.project,
             "version" => inventory.version,
         ),
@@ -43,7 +43,7 @@ function read_inventory(io::IO, ::MIME"application/toml")
     data = TOML.parse(io)
     try
         inventory_format = data["Inventory"]["format"]
-        if inventory_format != "DocInventories v1"
+        if inventory_format != "DocInventories v0"
             msg = "Invalid inventory format: $(repr(inventory_format))"
             throw(InventoryFormatError(msg))
         end
