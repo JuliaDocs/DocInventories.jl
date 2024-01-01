@@ -73,6 +73,34 @@ jobs:
         shell: julia --color=yes --project=test {0}
         run: |
           include(joinpath(pwd(), "test", "runtests.jl"))
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      statuses: write
+      pages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v1
+        with:
+          version: '1'
+      - name: "Instantiate build environment"
+        shell: julia --color=yes --project=test {0}
+        run: |
+          import Pkg
+          Pkg.develop(url="https://github.com/JuliaDocs/DocumenterInterLinks.jl")
+          Pkg.develop(path=".")
+          Pkg.instantiate()
+      - name: "Build documentation"
+        run: julia --project=test docs/make.jl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
+      - uses: actions/upload-artifact@v3
+        with:
+          name: doc-inventories-docs
+          path: docs/build/
   codestyle:
     name: Codestyle
     runs-on: ubuntu-latest

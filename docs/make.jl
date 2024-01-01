@@ -56,4 +56,4 @@ makedocs(
 
 println("Finished makedocs")
 
-# deploydocs(; repo="github.com/JuliaDocs/DocInventories.jl.git", push_preview=true)
+deploydocs(; repo="github.com/JuliaDocs/DocInventories.jl.git", push_preview=true)

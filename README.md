@@ -1,6 +1,8 @@
 # DocInventories.jl
 
 [![Version](https://juliahub.com/docs/DocInventories/version.svg)](https://juliahub.com/ui/Packages/General/DocInventories)
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://juliadocs.org/DocInventories.jl/)
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://juliadocs.org/DocInventories.jl/dev)
 [![Build Status](https://github.com/JuliaDocs/DocInventories.jl/workflows/CI/badge.svg)](https://github.com/JuliaDocs/DocInventories.jl/actions)
 [![Coverage](https://codecov.io/gh/JuliaDocs/DocInventories.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/JuliaDocs/DocInventories.jl)
 
