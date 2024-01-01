@@ -150,8 +150,6 @@ function _split_domain_role_name(domain_role_name::AbstractString)
     name = m["name"]
     if startswith(name, "`") && endswith(name, "`")
         name = chop(name, head=1, tail=1)
-    elseif startswith(name, "\"") && endswith(name, "\"")
-        name = chop(name, head=1, tail=1)
     end
     if isnothing(m["role"])
         # If only a role is given (":function:f"), the `func` syntactically
