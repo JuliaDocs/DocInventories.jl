@@ -22,9 +22,12 @@ using Documenter: Documenter, makedocs
     @test item2.name == item.name
     @test item2.domain == item.domain
     @test item2.role == "obj"
-    item3 = InventoryItem(":function:`Documenter.makedocs`" => "lib/public/#Documenter.makedocs")
-    item4 =
-        InventoryItem(":jl:function:`Documenter.makedocs`" => "lib/public/#Documenter.makedocs")
+    item3 = InventoryItem(
+        ":function:`Documenter.makedocs`" => "lib/public/#Documenter.makedocs"
+    )
+    item4 = InventoryItem(
+        ":jl:function:`Documenter.makedocs`" => "lib/public/#Documenter.makedocs"
+    )
     @test item == item3 == item4
 
     item = InventoryItem("main-index" => "#main-index"; dispname="Index", priority=2)

@@ -264,7 +264,7 @@ end
     @test inventory.sorted
     @test inventory.project == "WP"
     @test inventory.root_url == "https://en.wikipedia.org/wiki/"
-    @test endswith(inventory.source, "/objects.inv")
+    @test endswith(inventory.source, normpath("/objects.inv"))
     @test inventory.version == ""
     @test length(inventory) == 6
     @test inventory[1].name == "Julia"

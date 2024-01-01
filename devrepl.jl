@@ -15,11 +15,11 @@ using Pkg
 Pkg.activate("test")
 
 function _instantiate()
-    Pkg.develop(path=".")
     path_DocumenterInterLinks = joinpath("..", "DocumenterInterLinks.jl")
     if isdir(path_DocumenterInterLinks)
         Pkg.develop(path=path_DocumenterInterLinks)
     end
+    Pkg.develop(path=".")
 end
 
 if !isfile(joinpath("test", "Manifest.toml"))
