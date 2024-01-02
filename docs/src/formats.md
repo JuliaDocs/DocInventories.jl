@@ -66,3 +66,60 @@ The item-blocks may be grouped/separated by blank lines. In `.toml` file generat
 Any TOML parser should read a `.toml` file with the above structure into a nested dictionary, so that `item_dict = toml_data[domain][role][i]` corresponds to the `i`'th inventory item with the given `domain` and `role`. That `item_dict` will then map `"name"`, `"uri"`, and potentially `"dispname"` and `"priority"` to their respective values.
 
 A compressed TOML file can be written with, e.g., `DocInventories.save("inventory.toml.gz", inventory)`. With compression, the size of the file should be comparable (albeit slightly larger) than the compressed `objects.inv` format.
+
+
+## Size Comparison
+
+In the following table, we compare the size of the inventory file of different projects in kilobytes, for the various output formats.
+
+```@eval
+using DocInventories
+using DocumenterInterLinks
+using Markdown
+using DataFrames
+using PrettyTables
+
+inv = InterLinks(
+    "Documenter" => (
+        "https://documenter.juliadocs.org/stable/",
+        joinpath(@__DIR__, "inventories", "Documenter.toml")
+    ),
+    "Julia" => (
+        "https://docs.julialang.org/en/v1/",
+        joinpath(@__DIR__, "inventories", "Julia.toml")
+    ),
+    "Matplotlib" => "https://matplotlib.org/stable/objects.inv",
+    "Python" => "https://docs.python.org/3/objects.inv",
+)
+
+projects = collect(keys(inv))
+formats = [".txt", ".toml", ".inv", ".toml.gz"]
+data = (
+    "project" => String[],
+    "objects" => Int64[],
+    [format => String[] for format in formats]...
+)
+
+mktempdir() do tempdir
+    for name in projects
+        push!(data[1][2], name)
+        push!(data[2][2], length(inv[name]))
+        for (i, format) in enumerate(formats)
+            filename = joinpath(tempdir, name*format)
+            DocInventories.save(filename, inv[name])
+            kB = float(filesize(filename)) / 1024.0
+            push!(data[i+2][2], "$(round(kB; digits=1)) kB")
+        end
+    end
+end
+
+
+table = pretty_table(
+    String,
+    DataFrame(data...);
+    header=["Project", "No. of Objects", formats...],
+    backend = Val(:markdown),
+)
+
+Markdown.parse(table)
+```

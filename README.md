@@ -10,7 +10,7 @@
 
 ## Installation
 
-As usual, that package can be installed via
+As usual, the package can be installed via
 
 ```
 ] add DocInventories
