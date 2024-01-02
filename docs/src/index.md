@@ -16,7 +16,7 @@ else
     Markdown.parse("""
     -----
 
-    On Github: [JuliaDocs/DocumenterCitations.jl](https://github.com/JuliaDocs/DocumenterCitations.jl)
+    On Github: [JuliaDocs/DocInventories.jl](https://github.com/JuliaDocs/DocInventories.jl)
 
     Version: $VERSION
 

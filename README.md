@@ -6,7 +6,7 @@
 [![Build Status](https://github.com/JuliaDocs/DocInventories.jl/workflows/CI/badge.svg)](https://github.com/JuliaDocs/DocInventories.jl/actions)
 [![Coverage](https://codecov.io/gh/JuliaDocs/DocInventories.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/JuliaDocs/DocInventories.jl)
 
-[DocInventories.jl](https://github.com/JuliaDocs/DocInventories.jl#readme) is a package for reading and writing inventory files such as the `objects.inv` file used by [InterSphinx](https://www.sphinx-doc.org/en/master/usage/extensions/intersphinx.html).
+[DocInventories.jl](https://github.com/JuliaDocs/DocInventories.jl#readme) is a package for reading and writing inventory files such as the `objects.inv` file used by [Intersphinx](https://www.sphinx-doc.org/en/master/usage/extensions/intersphinx.html). It serves as a backend for [DocumenterInterLinks.jl](https://github.com/JuliaDocs/DocumenterInterLinks.jl#readme).
 
 ## Installation
 
@@ -27,4 +27,4 @@ to the relevant `Project.toml` file.
 
 ## Usage
 
-See [`usage.md`](docs/src/usage.md) for usage information.
+This package is primarily used in the context of [DocumenterInterLinks.jl](https://github.com/JuliaDocs/DocumenterInterLinks.jl#readme). For direct usage, see the [Usage section in the documentation](https://juliadocs.org/DocInventories.jl/stable/usage/).
