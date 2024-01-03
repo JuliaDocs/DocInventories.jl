@@ -118,7 +118,7 @@ struct InventoryItem
         contains(role, r"\s") && throw(ArgumentError("`role` must not contain whitespace."))
         contains(uri, r"\s") && throw(ArgumentError("`uri` must not contain whitespace."))
         startswith(uri, r"https?://") && throw(ArgumentError("`uri` must be relative."))
-        while (startswith(uri, "//"))
+        while (startswith(uri, "/"))
             uri = chop(uri, head=1, tail=0)
         end
         if endswith(uri, name)
@@ -202,6 +202,8 @@ function InventoryItem(pair::Pair; dispname=nothing, priority=nothing)
 end
 
 
+# How an `InventoryItems ` gets interpolated into a string or shows as part of
+# an Inventory
 function Base.show(io::IO, item::InventoryItem)
     full = get(io, :full, false)
     domain = item.domain
@@ -230,13 +232,77 @@ function Base.show(io::IO, item::InventoryItem)
         end
     end
     write(io, ")")
-    nothing
+    return nothing
 end
 
 
+# How an `InventoryItems` shows in the REPL
+function Base.show(io::IO, ::MIME"text/plain", item::InventoryItem)
+    full = get(io, :full, false)
+    domain = item.domain
+    priority = item.priority
+    if full
+        write(io, "InventoryItem(\n")
+        write(io, "  name=$(repr(item.name)),\n")
+        write(io, "  domain=$(repr(domain)),\n")
+        write(io, "  role=$(repr(item.role)),\n")
+        write(io, "  priority=$(repr(priority)),\n")
+        write(io, "  uri=$(repr(uri(item))),\n")
+        write(io, "  dispname=$(repr(dispname(item)))\n")
+        write(io, ")")
+    else
+        has_default_priority = (priority == 1)
+        if domain == "std"
+            has_default_priority = (priority == -1)
+        end
+        has_default_dispname = (item.dispname == "-")
+        spec = ":$(domain):$(item.role):`$(item.name)`"
+        write(io, "InventoryItem(")
+        if has_default_priority && has_default_dispname
+            # single-line repr
+            write(io, repr(spec), " => ", repr(item.uri))
+        else
+            # multi-line repr
+            write(io, "\n  ", repr(spec), " => ", repr(item.uri))
+            if !has_default_priority
+                write(io, ",\n  priority=$(repr(priority))")
+            end
+            if !has_default_dispname
+                write(io, ",\n  dispname=$(repr(item.dispname))")
+            end
+            write(io, "\n")
+        end
+        write(io, ")")
+    end
+    return nothing
+end
 
-"""Obtain the full URI for an [`InventoryItem`](@ref)
 
+"""
+```julia
+show_full(item)  # io=stdout
+show_full(io, item)
+```
+
+is equivalent to
+
+```julia
+show(IOContext(io, :full => true), "text/plain", item)
+```
+
+and shows the [`InventoryItem`](@ref) with all attributes.
+"""
+function show_full(item::InventoryItem)
+    show_full(stdout, item)
+end
+
+
+function show_full(io::IO, item::InventoryItem)
+    show(IOContext(io, :full => true), "text/plain", item)
+end
+
+
+"""
 ```julia
 uri_str = uri(item; root_url="")
 ```

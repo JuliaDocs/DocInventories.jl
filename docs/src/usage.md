@@ -32,7 +32,7 @@ Conceptually, as indicated above, the inventory item maps a [`spec`](@ref DocInv
 The `spec` in the mapping adopts the notation of a ["domain"](@extref sphinx :term:`domain`) and ["role"](@extref sphinx :term:`role`) from [Sphinx](@extref sphinx usage/domains/index):
 
 ```@example usage
-show(IOContext(stdout, :full=>true), inventory["Style-Guide"])
+DocInventories.show_full(inventory["Style-Guide"])
 ```
 
 This makes [`spec`](@ref DocInventories.spec) reminiscent of the [Sphinx cross-referencing syntax](@extref sphinx xref-syntax)[^1]. When looking up an item, the domain and role part of the specification are optional and serve for disambiguation. The above `item` could also have been obtained with ```inventory[:label:`Style Guide`]``` or ```inventory[:std:label:`Style Guide`]```.

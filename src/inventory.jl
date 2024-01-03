@@ -213,8 +213,7 @@ function Base.show(io::IO, ::MIME"text/plain", inventory::Inventory)
 end
 
 
-"""Show the entire `inventory`.
-
+"""
 ```julia
 show_full(inventory)  # io=stdout
 show_full(io, inventory)
@@ -226,15 +225,15 @@ is equivalent to
 show(IOContext(io, :limit => false), "text/plain", inventory)
 ```
 
-This may produce large output, so you may want to make use of the
-[`TerminalPager`](https://ronisbr.github.io/TerminalPager.jl/)
-package.
+and shows the entire [`inventory`](@ref Inventory) without truncating the list
+of items. This may produce large output, so you may want to make use of the
+[`TerminalPager`](https://ronisbr.github.io/TerminalPager.jl/) package.
 """
-function show_full(inventory)
+function show_full(inventory::Inventory)
     show_full(stdout, inventory)
 end
 
-function show_full(io::IO, inventory)
+function show_full(io::IO, inventory::Inventory)
     show(IOContext(io, :limit => false), "text/plain", inventory)
 end
 
