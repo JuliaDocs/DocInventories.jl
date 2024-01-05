@@ -1,7 +1,7 @@
 name = "DocInventories"
 uuid = "43dc2714-ed3b-44b5-b226-857eda1aa7de"
 authors = ["Michael Goerz <mail@michaelgoerz.net>"]
-version = "0.2.0+dev"
+version = "0.2.1"
 
 [deps]
 CodecZlib = "944b1d66-785c-5afd-91f1-9de20f533193"
