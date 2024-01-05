@@ -152,6 +152,15 @@ Base.lastindex(inventory::Inventory) = lastindex(inventory._items)
 Base.eltype(::Inventory) = InventoryItem
 
 
+function Base.:(==)(l::Inventory, r::Inventory)
+    (l.project == r.project) || (return false)
+    (l.version == r.version) || (return false)
+    (l._items == r._items) || (return false)
+    (l.source == r.source) || (return false)
+    (l.sorted == r.sorted) || (return false)
+    return true
+end
+
 # How an `inventory ` object gets interpolated into a string
 function Base.show(io::IO, inventory::Inventory)
     source = inventory.source

@@ -408,14 +408,16 @@ end
         filename = joinpath(tempdir, "objects.inv")
         DocInventories.save(filename, inventory)  # auto-mime
         readinv = Inventory(filename; root_url="")
+        @test readinv != inventory  # differs in `sorted`
         @test length(readinv) == 4
         @test readinv.sorted
-        readinv = Inventory(filename; root_url="", mime="application/x-intersphinx")
-        @test length(readinv) == 4
-        @test readinv.sorted
-        @test readinv[":std:label:`Introduction`"].priority == -1
-        @test readinv[":jl:function:`a`"].priority == 1
-        @test readinv[":std:label:`section-2`"].dispname == "Section 2"
+        readinv2 = Inventory(filename; root_url="", mime="application/x-intersphinx")
+        @test length(readinv2) == 4
+        @test readinv2.sorted
+        @test readinv2[":std:label:`Introduction`"].priority == -1
+        @test readinv2[":jl:function:`a`"].priority == 1
+        @test readinv2[":std:label:`section-2`"].dispname == "Section 2"
+        @test readinv2 == readinv
 
         filename = joinpath(tempdir, "objects.txt")  # inappropriate extension
         DocInventories.save(filename, inventory, "application/x-intersphinx")
