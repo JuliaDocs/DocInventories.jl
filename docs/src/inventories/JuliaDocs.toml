@@ -1,7 +1,5 @@
-[Inventory]
-format = "DocInventories v0"
+# DocInventory version 0
 project = "JuliaDocs"
-version = ""
 
 [[std.doc]]
 name = "DocumenterInterLinks"
