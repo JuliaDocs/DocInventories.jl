@@ -181,6 +181,118 @@ end
         @test c.value isa InventoryFormatError
         @test contains(c.output, "Unexpected line")
 
+        filename = joinpath(tempdir, "missing_project.toml")
+        #!format: off
+        write(filename, """
+        # DocInventory version 0
+
+        [[std.doc]]
+        name = "DocumenterInterLinks"
+        uri = "DocumenterInterLinks.jl#readme"
+        """)
+        #!format: on
+        c = IOCapture.capture(rethrow=Union{}) do
+            Inventory(filename; root_url="")
+        end
+        @test c.value isa InventoryFormatError
+        @test contains(c.output, "key \"project\" not found")
+
+        filename = joinpath(tempdir, "old_format.toml")
+        #!format: off
+        write(filename, """
+        [Inventory]
+        format = "DocInventories v0"
+        project = "Test"
+        version = "0.1.0"
+
+        [[std.doc]]
+        name = "DocumenterInterLinks"
+        uri = "DocumenterInterLinks.jl#readme"
+        """)
+        #!format: on
+        c = IOCapture.capture(rethrow=Union{}) do
+            Inventory(filename; root_url="")
+        end
+        @test_broken c.value isa InventoryFormatError
+        @test contains(c.output, "Unexpected key: format")
+        @test contains(c.output, "Invalid format_header: [Inventory]")
+
+        filename = joinpath(tempdir, "old_format2.toml")
+        #!format: off
+        write(filename, """
+        # This is an old inventory file, and because of this comment, the
+        # `[Inventory]` won't be stripped as a format_header
+
+        [Inventory]
+        format = "DocInventories v0"
+        project = "Test"
+        version = "0.1.0"
+
+        [[std.doc]]
+        name = "DocumenterInterLinks"
+        uri = "DocumenterInterLinks.jl#readme"
+        """)
+        #!format: on
+        c = IOCapture.capture(rethrow=Union{}) do
+            Inventory(filename; root_url="")
+        end
+        @test c.value isa InventoryFormatError
+        @test contains(c.output, "key \"project\" not found")
+
+        filename = joinpath(tempdir, "no_header_line.toml")
+        #!format: off
+        write(filename, """
+        project = "Test"
+        version = "0.1.0"
+
+        [[std.doc]]
+        name = "DocumenterInterLinks"
+        uri = "DocumenterInterLinks.jl#readme"
+        """)
+        #!format: on
+        c = IOCapture.capture(rethrow=Union{}) do
+            Inventory(filename; root_url="")
+        end
+        @test c.value isa InventoryFormatError
+        @test contains(c.output, "Invalid format_header: project = \"Test\"")
+        @test contains(c.output, "key \"project\" not found")
+
+        filename = joinpath(tempdir, "typo1.toml")
+        #!format: off
+        write(filename, """
+        # DocInventory version 0
+        project = "Test"
+        verison = "0.1.0"
+
+        [[std.doc]]
+        name = "DocumenterInterLinks"
+        uri = "DocumenterInterLinks.jl#readme"
+        """)
+        #!format: on
+        c = IOCapture.capture(rethrow=Union{}) do
+            Inventory(filename; root_url="")
+        end
+        @test c.value isa InventoryFormatError
+        @test contains(c.output, "Unexpected key: verison")
+
+        filename = joinpath(tempdir, "typo2.toml")
+        #!format: off
+        write(filename, """
+        # DocInventory version 0
+        project = "Test"
+        version = "0.1.0"
+
+        [[std_doc]]
+        name = "DocumenterInterLinks"
+        uri = "DocumenterInterLinks.jl#readme"
+        """)
+        #!format: on
+        c = IOCapture.capture(rethrow=Union{}) do
+            Inventory(filename; root_url="")
+        end
+        @test c.value isa InventoryFormatError
+        @test contains(c.output, "Unexpected key: std_doc")
+
     end
 
 end
@@ -483,6 +595,37 @@ end
         end
         @test contains(c.output, "Only v2 objects.inv files currently supported")
         @test c.value isa InventoryFormatError
+
+        filename = joinpath(tempdir, "wrong_version_type.toml")
+        #!format: off
+        write(filename, """
+        # DocInventory version 0
+        project = "Test"
+        version = 1.0
+
+        [[std.doc]]
+        name = "DocumenterInterLinks"
+        uri = "DocumenterInterLinks.jl#readme"
+        """)
+        #!format: on
+        readinv = Inventory(filename; root_url="")
+        # this still works because the float "1.0" is converted to string
+        @test readinv.version == "1.0"
+
+        filename = joinpath(tempdir, "future_header.toml")
+        #!format: off
+        write(filename, """
+        # Documenter Inventory version 1
+        project = "Test"
+        version = "1.0"
+
+        [[std.doc]]
+        name = "DocumenterInterLinks"
+        uri = "DocumenterInterLinks.jl#readme"
+        """)
+        #!format: on
+        readinv = Inventory(filename; root_url="")
+        @test readinv.project == "Test"
 
     end
 
