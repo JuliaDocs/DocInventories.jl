@@ -105,7 +105,7 @@ struct InventoryItem
         name::AbstractString,
         domain::AbstractString,
         role::AbstractString,
-        priority::Int,
+        priority::Integer,
         uri::AbstractString,
         dispname::AbstractString
     )

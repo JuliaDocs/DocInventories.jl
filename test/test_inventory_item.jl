@@ -90,6 +90,20 @@ using IOCapture: IOCapture
 end
 
 
+@testset "IventoryItem on 32-bit" begin
+    item = InventoryItem("f" => "#f"; priority=Int32(1))
+    @test item.priority == 1
+    item = InventoryItem("f" => "#f"; priority=Int64(1))
+    @test item.priority == 1
+    item = InventoryItem("f" => "#f"; priority=UInt8(1))
+    @test item.priority == 1
+    item = InventoryItem("f" => "#f"; priority=Int8(1))
+    @test item.priority == 1
+    item = InventoryItem("f" => "#f"; priority=1)
+    @test item.priority == 1
+end
+
+
 @testset "invalid IventoryItem" begin
     @test_throws ArgumentError begin
         InventoryItem(
