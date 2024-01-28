@@ -97,7 +97,7 @@ struct InventoryItem
     name::String
     domain::String
     role::String
-    priority::Int64
+    priority::Int
     uri::String
     dispname::String
 
@@ -105,7 +105,7 @@ struct InventoryItem
         name::AbstractString,
         domain::AbstractString,
         role::AbstractString,
-        priority::Int64,
+        priority::Int,
         uri::AbstractString,
         dispname::AbstractString
     )
