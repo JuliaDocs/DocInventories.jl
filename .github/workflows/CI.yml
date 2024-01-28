@@ -26,9 +26,15 @@ jobs:
           - title: 'Linux - Latest'
             os: ubuntu-latest
             version: '1'
+            arch: x64
           - title: 'Windows - Latest'
             os: windows-latest
             version: '1'
+            arch: x64
+          - title: 'Linux - 32bit'
+            os: ubuntu-latest
+            version: '1'
+            arch: x86
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v1
