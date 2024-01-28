@@ -146,7 +146,7 @@ end
 Base.length(inventory::Inventory) = length(inventory._items)
 Base.iterate(inventory::Inventory) = iterate(inventory._items)
 Base.iterate(inventory::Inventory, state) = iterate(inventory._items, state)
-Base.getindex(inventory::Inventory, ind::Int64) = getindex(inventory._items, ind)
+Base.getindex(inventory::Inventory, ind::Int) = getindex(inventory._items, ind)
 Base.firstindex(inventory::Inventory) = firstindex(inventory._items)
 Base.lastindex(inventory::Inventory) = lastindex(inventory._items)
 Base.eltype(::Inventory) = InventoryItem

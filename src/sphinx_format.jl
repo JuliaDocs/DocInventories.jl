@@ -150,7 +150,7 @@ function read_inventory(
                     name=m["name"],
                     domain=m["domain"],
                     role=m["role"],
-                    priority=parse(Int64, m["priority"]),
+                    priority=parse(Int, m["priority"]),
                     uri=m["uri"],
                     dispname=m["dispname"],
                 )
