@@ -1,7 +1,7 @@
 using Test
 using TestingUtilities: @Test
 using DocInventories
-using DocInventories: uri, spec, find_in_inventory, split_url, show_full
+using DocInventories: uri, spec, find_in_inventory, split_url, show_full, set_metadata
 using DocInventories: InventoryFormatError
 using Downloads: RequestError
 using IOCapture: IOCapture
@@ -19,6 +19,7 @@ using IOCapture: IOCapture
     @test length(inventory("Storage")) == 6
 
 end
+
 
 @testset "Read krotov.inv" begin
 
@@ -69,6 +70,42 @@ end
         # Other libraries (https://github.com/bskinn/sphobjinv) do not!
     catch exception
         @warn "Cannot read online inventory in test" exception
+    end
+
+end
+
+
+@testset "Set metadata" begin
+
+    inventory = Inventory(
+        joinpath(@__DIR__, "quantumpropagators.inv");
+        root_url="https://juliaquantumcontrol.github.io/QuantumPropagators.jl/stable/"
+    )
+    @test inventory.project == "QuantumPropagators.jl"
+    @test inventory.version == "0.7.0+dev"
+
+    inv2 = set_metadata(inventory, project="QuantumPropagators")
+    @test inv2.project == "QuantumPropagators"
+    @test inv2.version == "0.7.0+dev"
+
+    inv3 = set_metadata(inventory, project="QuantumPropagators", version="0.7.0")
+    @test inv3.project == "QuantumPropagators"
+    @test inv3.version == "0.7.0"
+
+    mktempdir() do tempdir
+        for extension in ("inv", "toml", "toml.gz")
+            filename = joinpath(tempdir, "qp.$extension")
+            DocInventories.save(filename, inventory)
+            set_metadata(filename; project="QuantumPropagators")
+            set_metadata(filename; version="0.7.0")
+            inv4 = Inventory(filename; root_url="")
+            @test inv4.project == "QuantumPropagators"
+            @test inv4.version == "0.7.0"
+            set_metadata(filename; project="QuantumPropagators.jl", version="0.7.0-dev")
+            inv5 = Inventory(filename; root_url="")
+            @test inv5.project == "QuantumPropagators.jl"
+            @test inv5.version == "0.7.0-dev"
+        end
     end
 
 end

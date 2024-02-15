@@ -86,6 +86,10 @@ The search results are sorted by [`abs(item.priority)`](@ref InventoryItem). If
 * [`append!(inventory, collections...)`](@extref Julia Base.append!) – add
   collections of [`InventoryItems`](@ref InventoryItem) to an existing
   `inventory`.
+* [`collect(inventory)`](@extref Julia Base.collect-Tuple{Any}) – convert the
+  inventory to a standard `Vector` of [`InventoryItems`](@ref InventoryItem).
+* [`set_metadata(inventory)`](@ref) – Modify the `project` and `version`
+  metadata.
 * [`sort(inventory)`](@extref Julia Base.sort) – convert an unsorted inventory
   into a sorted one.
 """
