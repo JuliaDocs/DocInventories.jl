@@ -111,6 +111,34 @@ end
 end
 
 
+@testset "convert" begin
+    rootname = tempname()
+    inventory_toml = "$rootname.toml"
+    inventory_txt_gz = "$rootname.txt.gz"
+    DocInventories.convert(joinpath(@__DIR__, "quantumpropagators.inv"), inventory_toml)
+    inventory = Inventory(inventory_toml; root_url="")
+    @test inventory.project == "QuantumPropagators.jl"
+    @test inventory.version == "0.7.0+dev"
+    DocInventories.convert(
+        inventory_toml,
+        inventory_toml;
+        project="QuantumPropagators",
+        version="0.7.0",
+    )
+    inventory = Inventory(inventory_toml; root_url="")
+    @test inventory.project == "QuantumPropagators"
+    @test inventory.version == "0.7.0"
+    DocInventories.convert(
+        inventory_toml,
+        inventory_txt_gz;
+        project="QuantumPropagators.jl",
+    )
+    inventory = Inventory(inventory_txt_gz; root_url="")
+    @test inventory.project == "QuantumPropagators.jl"
+    @test inventory.version == "0.7.0"
+end
+
+
 @testset "Read invalid" begin
 
     @test_throws RequestError begin

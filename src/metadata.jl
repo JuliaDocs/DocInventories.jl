@@ -46,7 +46,7 @@ end
 
 
 function set_metadata(filename::AbstractString, mime; kwargs...)
-    inventory = set_metadata(Inventory(filename; mime, root_url=""); kwargs...)
+    inventory = set_metadata(Inventory(filename; mime=mime, root_url=""); kwargs...)
     save(filename, inventory; mime)
 end
 

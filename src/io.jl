@@ -30,7 +30,7 @@ end
 """Write the [`Inventory`](@ref) to file in the specified format.
 
 ```julia
-save(filename, inventory; mime=auto_mime(filename))
+DocInventories.save(filename, inventory; mime=auto_mime(filename))
 ```
 
 writes `inventory` to `filename` in the specified MIME type. By default, the
@@ -70,4 +70,26 @@ function save(filename::AbstractString, inventory, mime)
             rethrow()
         end
     end
+end
+
+
+"""Convert an inventory file.
+
+```julia
+DocInventories.convert("objects.inv", "inventory.toml")
+```
+
+converts the input file `"objects.inv"` in the [Sphinx Inventory Format](@ref)
+to the [TOML Format](@ref) `"inventory.toml"`.
+
+This is a convenience function to simply load an [`Inventory`](@ref) from the
+input file and write it to the output file. Both the input and output file must
+have known file extensions. The `project` and `version` metadata may be given
+as additional keyword arguments to be written to the output file, see
+[`set_metadata`](@ref).
+"""
+function convert(file_in, file_out; kwargs...)
+    inventory = Inventory(file_in; root_url="")
+    inventory = set_metadata(inventory; kwargs...)
+    save(file_out, inventory)
 end
