@@ -38,11 +38,13 @@ added afterwards via [`push!`](@extref Julia Base.push!).
 * `root_url`: The root URL to which the `item.uri` of any
   [`InventoryItem`](@ref) is relative. If not empty, should start with
   `"https://"` and end with a slash.
-* `source`: The URL or filename from which the inventory was loaded, or a
-   comment if the inventory was constructed otherwise.
+* `source`: The URL or filename from which the inventory was loaded.
 * `sorted`: A boolean to indicate whether the items are sorted by their `name`
    attribute, allowing for efficient lookup. This is `true` for all inventories
    loaded from a URL or file and `false` for manually instantiated inventories.
+
+Note that `source` and `sorted` are informational attributes only and are
+ignored when comparing two `Inventory` objects.
 
 # Item access
 
@@ -160,8 +162,8 @@ function Base.:(==)(l::Inventory, r::Inventory)
     (l.project == r.project) || (return false)
     (l.version == r.version) || (return false)
     (l._items == r._items) || (return false)
-    (l.source == r.source) || (return false)
-    (l.sorted == r.sorted) || (return false)
+    (l.root_url == r.root_url) || (return false)
+    # `source` and `sorted` are deliberately not part of the comparison
     return true
 end
 

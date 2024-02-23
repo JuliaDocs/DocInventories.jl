@@ -477,6 +477,68 @@ end
 end
 
 
+@testset "Iventory equality" begin
+    items = [InventoryItem("f" => "f"), InventoryItem("g" => "g"),]
+    inventory1 = Inventory(
+        "ProjectA",
+        "1.0.0",
+        items,
+        "https://github.com/JuliaDocs/DocInventories.jl",
+        "test1",
+        true
+    )
+    @test inventory1 == inventory1
+    inventory2 = Inventory(
+        "ProjectA",
+        "1.0.0",
+        items,
+        "https://github.com/JuliaDocs/DocInventories.jl",
+        "test2",
+        false
+    )
+    @test inventory2 == inventory1
+    inventory3 = Inventory(
+        "ProjectB",
+        "1.0.0",
+        items,
+        "https://github.com/JuliaDocs/DocInventories.jl",
+        "test1",
+        true
+    )
+    @test inventory3 != inventory1
+    inventory4 = Inventory(
+        "ProjectA",
+        "1.0.0+dev",
+        items,
+        "https://github.com/JuliaDocs/DocInventories.jl",
+        "test1",
+        true
+    )
+    @test inventory4 != inventory1
+    items2 = [InventoryItem("g" => "g"), InventoryItem("f" => "f"),]
+    inventory5 = Inventory(
+        "ProjectA",
+        "1.0.0",
+        items2,
+        "https://github.com/JuliaDocs/DocInventories.jl",
+        "test1",
+        false
+    )
+    @test inventory5 != inventory1
+    inventory6 = Inventory(
+        "ProjectA",
+        "1.0.0",
+        items,
+        "https://github.com/JuliaDocs/DocInventories2.jl",
+        "test1",
+        true
+    )
+    @test inventory6 != inventory1
+
+end
+
+
+
 @testset "Search inventory" begin
 
     inventory = Inventory(project="Search", version="1.0")
