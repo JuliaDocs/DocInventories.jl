@@ -1,6 +1,6 @@
 # Creating Inventory Files
 
-In general, inventory files should be generated automatically by [Sphinx](@extref sphinx :doc:`index`) or [DocumenterInterLinks](@extref JuliaDocs). However, there are situations where producing and inventory file "by hand" make sense:
+In general, inventory files should be generated automatically by [Documenter](@extref Documenter :doc:`index`) or [Sphinx](@extref sphinx :doc:`index`). However, there are situations where producing and inventory file "by hand" make sense:
 
 * A project does not provide an inventory file. Maybe its documentation is entirely in its Github README file.
 
@@ -44,7 +44,7 @@ push!(
 )
 ```
 
-We've used here the role `:std:doc:` for "documents", which is somewhat optional, but more accurate than the default `":std:label:"` role for a section within a document. In any case, as shown in [Usage](@ref), items can be looked without referring to the domain or role:
+We've used here the role `:std:doc:` for "documents", which is somewhat optional, but semantically more accurate than the default `":std:label:"` role for a section within a document. In any case, as shown in [Usage](@ref), items can be looked without referring to the domain or role:
 
 ```@example creating
 inventory["Julia"]

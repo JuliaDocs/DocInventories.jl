@@ -7,7 +7,7 @@ See also [`DocInventories.MIME_TYPES`](@ref) for file extensions and correspondi
 
 ## Sphinx Inventory Format
 
-The Sphinx inventory format is the format of the `objects.inv` file that is automatically created for every documentation generated via [Sphinx](@extref sphinx :doc:`index`).
+The Sphinx inventory format is the format of the `objects.inv` file that is automatically created for every documentation generated via [Sphinx](@extref sphinx :doc:`index`), and, as of `Documenter>=1.3.0`, for every documentation generated via [Documenter](@extref Documenter :doc:`index`).
 
 It is documented extensively as part of the [`sphobjinv` project](@extref sphobjinv :doc:syntax). In short, the `objects.inv` file starts with a four-line plain text header of the form
 
@@ -22,7 +22,7 @@ As indicated in the header, the remainder of the file contains compressed data c
 
 ## Plain Text Format
 
-`DocInventories` (like [`sphobjinv`](@extref sphobjinv :doc:index)) can remove the compression of the `objects.inv`, storing a plain text version of `objects.inv` in a `.txt` format.
+`DocInventories` (like [`sphobjinv`](@extref sphobjinv :doc:index)) can remove the compression of the `objects.inv` file, storing a plain text version of the `objects.inv` in a `.txt` format.
 
 It has the same four-line header as the [Sphinx Inventory Format](@ref) (up to a small variation in the fourth line to indicate that the file is no longer compressed). Then, for each [`InventoryItem`](@ref), it contains a single line of the form
 
