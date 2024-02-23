@@ -35,18 +35,15 @@ Note that `DocInventories` internally uses the `text/x-intersphinx` MIME type fo
 
 ## TOML Format
 
-The TOML format is a text output format that is optimized for human readability. It starts with a header section of the form
+The TOML format is a text output format that is optimized for human readability. The format is unique to the `DocInventories` package. It starts with a header section of the form
 
 ```toml
-# DocInventory version 0
+# DocInventory version 1
 project = "<project>"
 version = "<version>"
 ```
 
 The comment in the first line is mandatory and identifies the file as containing inventory data in the format described here.
-
-!!! warning
-    As indicated by the "version 0" in the header comment line, the format described here is currently experimental and may change without notice
 
 The `project` line must specify the name of the project described by the inventory. It is mandatory. The `version` line may specify the version of the project. It is optional, but recommended.
 

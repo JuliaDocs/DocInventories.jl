@@ -417,7 +417,7 @@ function uri(inventory::Inventory, key)
 end
 
 
-"""An error indicating an issue with an `objects.inv` file.
+"""An error indicating an issue with an inventory file.
 
 ```julia
 throw(InventoryFormatError(msg))
