@@ -45,6 +45,7 @@ jobs:
         shell: julia --color=yes --project=test {0}
         run: |
           import Pkg
+          Pkg.develop(url="https://github.com/JuliaDocs/DocumenterInventoryWritingBackport.jl")
           Pkg.develop(url="https://github.com/JuliaDocs/DocumenterInterLinks.jl")
           Pkg.develop(path=".")
           Pkg.instantiate()
@@ -71,6 +72,7 @@ jobs:
         shell: julia --color=yes --project=test {0}
         run: |
           import Pkg
+          Pkg.develop(url="https://github.com/JuliaDocs/DocumenterInventoryWritingBackport.jl")
           Pkg.develop(url="https://github.com/JuliaDocs/DocumenterInterLinks.jl")
           Pkg.develop(path=".")
           Pkg.precompile()
@@ -95,6 +97,7 @@ jobs:
         shell: julia --color=yes --project=test {0}
         run: |
           import Pkg
+          Pkg.develop(url="https://github.com/JuliaDocs/DocumenterInventoryWritingBackport.jl")
           Pkg.develop(url="https://github.com/JuliaDocs/DocumenterInterLinks.jl")
           Pkg.develop(path=".")
           Pkg.instantiate()

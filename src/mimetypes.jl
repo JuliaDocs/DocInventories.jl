@@ -1,3 +1,6 @@
+# Note: do not remove the link to "Inventory File Formats" in the
+# docstring! It is used as an example in the documentatin of
+# DocumenterInterLinks
 """Default map of file extensions to MIME types.
 
 ```julia
@@ -9,6 +12,8 @@ MIME_TYPES = Dict(
     ".toml.gz" => MIME("application/toml+gzip"),
 )
 ```
+
+See [Inventory File Formats](@ref) for details.
 """
 const MIME_TYPES = Dict(
     ".txt" => MIME("text/x-intersphinx"),  # see sphinx_format.jl

@@ -1,4 +1,4 @@
-"""An inventory link targets in a project documentation.
+"""An inventory of link targets in a project documentation.
 
 ```julia
 inventory = Inventory(
