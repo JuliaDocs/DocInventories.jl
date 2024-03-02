@@ -18,7 +18,7 @@ For convenience, an `InventoryItem` can also be instantiated from a mapping
 [cross-referencing syntax](@extref sphinx usage/referencing):
 
 ```julia
-item = IventoryItem(
+item = InventoryItem(
     ":domain:role:`name`" => uri;
     dispname=<name>,
     priority=(<domain == "std" ? -1 : 1>)
@@ -30,7 +30,7 @@ for `role="label"` or `role="doc"`, and `"jl"` otherwise. The `role` is
 mandatory for code objects. For non-code objects,
 
 ```julia
-item = IventoryItem(
+item = InventoryItem(
     "title" => uri;
     dispname=<title>,
     priority=-1
@@ -39,7 +39,7 @@ item = IventoryItem(
 
 indicates a link to a section header in the documentation of a project. The
 `name` will be a sluggified version of the title, making the `item` equivalent
-to ```item = IventoryItem(":std:label:`name`" => uri; dispname=title,
+to ```item = InventoryItem(":std:label:`name`" => uri; dispname=title,
 priority=-1)```.
 
 # Attributes

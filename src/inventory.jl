@@ -26,7 +26,7 @@ inventory = Inventory(; project, version="", root_url="", items=[])
 ```
 
 with a mandatory `project` argument instantiates an `inventory` with the
-[`IventoryItems`](@ref InventoryItem) in `items`. If `items` is not given, the
+[`InventoryItems`](@ref InventoryItem) in `items`. If `items` is not given, the
 resulting empty `inventory` can have [`InventoryItems`](@ref InventoryItem)
 added afterwards via [`push!`](@extref Julia Base.push!).
 

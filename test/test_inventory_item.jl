@@ -90,7 +90,7 @@ using IOCapture: IOCapture
 end
 
 
-@testset "IventoryItem on 32-bit" begin
+@testset "InventoryItem on 32-bit" begin
     item = InventoryItem("f" => "#f"; priority=Int32(1))
     @test item.priority == 1
     item = InventoryItem("f" => "#f"; priority=Int64(1))
@@ -104,7 +104,7 @@ end
 end
 
 
-@testset "invalid IventoryItem" begin
+@testset "invalid InventoryItem" begin
     @test_throws ArgumentError begin
         InventoryItem(
             "`makedocs`" => "https://documenter.juliadocs.org/stable/lib/public/#Documenter.makedocs"
