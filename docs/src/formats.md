@@ -78,10 +78,7 @@ using DataFrames
 using PrettyTables
 
 inv = InterLinks(
-    "Documenter" => (
-        "https://documenter.juliadocs.org/stable/",
-        joinpath(@__DIR__, "inventories", "Documenter.toml")
-    ),
+    "Documenter" => "https://documenter.juliadocs.org/stable/objects.inv",
     "Julia" => (
         "https://docs.julialang.org/en/v1/",
         joinpath(@__DIR__, "inventories", "Julia.toml")
