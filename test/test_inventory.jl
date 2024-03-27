@@ -1,7 +1,8 @@
 using Test
 using TestingUtilities: @Test
 using DocInventories
-using DocInventories: uri, spec, find_in_inventory, split_url, show_full, set_metadata
+using DocInventories:
+    uri, spec, find_in_inventory, split_url, show_full, set_metadata, auto_mime
 using DocInventories: InventoryFormatError
 using Downloads: RequestError
 using IOCapture: IOCapture
@@ -756,4 +757,23 @@ end
 
     end
 
+end
+
+
+@testset "auto_mime" begin
+    @test auto_mime("objects.inv") == MIME("application/x-intersphinx")
+    @test auto_mime("Julia-1.10.2.inv") == MIME("application/x-intersphinx")
+    @test auto_mime("objects.txt") == MIME("text/x-intersphinx")
+    @test auto_mime("Julia-1.10.2.txt") == MIME("text/x-intersphinx")
+    @test auto_mime("objects.txt.gz") == MIME("text/x-intersphinx+gzip")
+    @test auto_mime("Julia-1.10.2.txt.gz") == MIME("text/x-intersphinx+gzip")
+    @test auto_mime("inventory.toml") == MIME("application/toml")
+    @test auto_mime("Julia-1.10.2.toml") == MIME("application/toml")
+    @test auto_mime("inventory.toml.gz") == MIME("application/toml+gzip")
+    @test auto_mime("Julia-1.10.2.toml.gz") == MIME("application/toml+gzip")
+    captured = IOCapture.capture(rethrow=Union{}) do
+        auto_mime("inventory.toml.zip")
+    end
+    @test captured.value isa ArgumentError
+    @test contains(captured.output, "Cannot determine MIME type")
 end

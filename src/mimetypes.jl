@@ -29,12 +29,11 @@ const MIME_TYPES = Dict(
 function splitfullext(filepath::String)
     root, ext = splitext(filepath)
     full_ext = ext
-
-    # Keep splitting until no more extensions are found
-    while ext != ""
+    if ext == ".gz"
         root, ext = splitext(root)
-        (ext == "") && break
-        full_ext = ext * full_ext
+        if (ext != "")
+            full_ext = ext * full_ext
+        end
     end
     return root, full_ext
 end
