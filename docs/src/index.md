@@ -56,6 +56,11 @@ to the relevant `Project.toml` file.
 Pages = [page for (name, page) in Main.PAGES[2:end]]
 ```
 
+## Changelog
+
+The `DocInventories` project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). You can find a [`CHANGELOG` for versions after `v1.0`](https://github.com/JuliaDocs/DocInventories.jl/blob/master/CHANGELOG.md) online.
+
+
 ## Related Projects
 
 * [Documenter.jl](https://documenter.juliadocs.org/stable/) — The default documentation generator in the [Julia](https://julialang.org) ecosystem. As of version `1.3.0`, `Documenter` automatically generates and deploys a ([Sphinx-format](@ref "Sphinx Inventory Format")) `objects.inv` file that enables linking into a project's documentation.

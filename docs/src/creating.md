@@ -1,6 +1,6 @@
 # Creating Inventory Files
 
-In general, inventory files should be generated automatically by [Documenter](@extref Documenter :doc:`index`) or [Sphinx](@extref sphinx :doc:`index`). However, there are situations where producing and inventory file "by hand" make sense:
+In general, inventory files should be generated automatically by [Documenter](@extref Documenter :doc:`index`) or [Sphinx](@extref sphinx :doc:`index`). However, there are situations where producing an inventory file "by hand" make sense:
 
 * A project does not provide an inventory file. Maybe its documentation is entirely in its Github README file.
 
@@ -27,7 +27,7 @@ inventory = Inventory(
 nothing # hide
 ```
 
-Then, we can [`push!`](@extref Julia Base.push!) [`InventoryItems`](@ref InventoryItem) for all pages we want to include in the inventory:
+Then, we can [`push!`](@extref Julia Base.push!) new [`InventoryItems`](@ref InventoryItem) for all pages we want to include in the inventory:
 
 
 ```@example creating

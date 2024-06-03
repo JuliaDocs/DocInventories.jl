@@ -12,6 +12,7 @@ GITHUB = "https://github.com/goerz/DocInventories.jl"
 links = InterLinks(
     "Julia" => (
         "https://docs.julialang.org/en/v1/",
+        "https://docs.julialang.org/en/v1/objects.inv",
         joinpath(@__DIR__, "src", "inventories", "Julia.toml")
     ),
     "JuliaDocs" => (
