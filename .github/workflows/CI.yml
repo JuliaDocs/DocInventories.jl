@@ -10,11 +10,13 @@ on:
   pull_request:
     branches:
       - master
+
 concurrency:
   # Skip intermediate builds: always.
-  # Cancel intermediate builds: only if it is a pull request build.
   group: ${{ github.workflow }}-${{ github.ref }}
+  # Cancel intermediate builds: only if it is a pull request build.
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
 jobs:
   test:
     name: Test ${{ matrix.title }}
@@ -36,11 +38,11 @@ jobs:
             version: '1'
             arch: x86
     steps:
-      - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v1
+      - uses: actions/checkout@v5
+      - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.version }}
-      - uses: julia-actions/cache@v1
+      - uses: julia-actions/cache@v2
       - name: "Instantiate test environment"
         shell: julia --color=yes --project=test {0}
         run: |
@@ -53,21 +55,21 @@ jobs:
         shell: julia --color=yes --project=test --code-coverage="@" --depwarn="yes" --check-bounds="yes" {0}
         run: |
           include(joinpath(pwd(), "test", "runtests.jl"))
-      - name: "Summarize coverage"
-        run: julia --project=test -L devrepl.jl -e 'display(show_coverage())'
       - uses: julia-actions/julia-processcoverage@v1
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v5
         with:
           files: lcov.info
+          token: ${{ secrets.CODECOV_TOKEN }}
+
   testoldest:
     name: Test Lower Compat Bounds
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v1
+      - uses: actions/checkout@v5
+      - uses: julia-actions/setup-julia@v2
         with:
           version: 1.6
-      - uses: julia-actions/cache@v1
+      - uses: julia-actions/cache@v2
       - name: "Instantiate test environment"
         shell: julia --color=yes --project=test {0}
         run: |
@@ -89,8 +91,8 @@ jobs:
       statuses: write
       pages: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v1
+      - uses: actions/checkout@v5
+      - uses: julia-actions/setup-julia@v2
         with:
           version: '1'
       - name: "Instantiate build environment"
@@ -106,7 +108,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v5
         with:
           name: doc-inventories-docs
           path: docs/build/
@@ -114,8 +116,8 @@ jobs:
     name: Codestyle
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v1
+      - uses: actions/checkout@v5
+      - uses: julia-actions/setup-julia@v2
         with:
           version: '1'
       - name: Install JuliaFormatter and format
@@ -139,7 +141,7 @@ jobs:
               exit(1)
           end
       - name: Spell Check
-        uses: crate-ci/typos@master
+        uses: crate-ci/typos@v1
       - name: Version Check
         shell: julia {0}
         run: |
