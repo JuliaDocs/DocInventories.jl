@@ -37,7 +37,7 @@ function split_url(url)
         throw(ArgumentError(msg))
     end
     offset = length(url_match.match)
-    last_slash_index = findlast('/', url[1+offset:end])
+    last_slash_index = findlast('/', url[(1+offset):end])
     if isnothing(last_slash_index)
         return (url, "")
     else

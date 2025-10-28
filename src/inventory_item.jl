@@ -122,7 +122,7 @@ struct InventoryItem
             uri = chop(uri, head=1, tail=0)
         end
         if endswith(uri, name)
-            uri = uri[begin:end-length(name)] * "\$"
+            uri = uri[begin:(end-length(name))] * "\$"
         end
         isempty(dispname) && throw(ArgumentError("`dispname` must have non-zero length."))
         if dispname == name

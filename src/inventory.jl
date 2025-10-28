@@ -215,7 +215,7 @@ function Base.show(io::IO, ::MIME"text/plain", inventory::Inventory)
                 write(io, ",\n")
             end
             println(io, "  ⋮ ($N elements in total)")
-            for i = N-5:N
+            for i = (N-5):N
                 write(io, "  ")
                 show(io, inventory[i])
                 write(io, ",\n")
