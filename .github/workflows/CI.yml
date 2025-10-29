@@ -47,18 +47,7 @@ jobs:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v2
-      - name: "Instantiate test environment"
-        shell: julia --color=yes --project=test {0}
-        run: |
-          import Pkg
-          Pkg.develop(url="https://github.com/JuliaDocs/DocumenterInventoryWritingBackport.jl")
-          Pkg.develop(url="https://github.com/JuliaDocs/DocumenterInterLinks.jl")
-          Pkg.develop(path=".")
-          Pkg.instantiate()
-      - name: "Run tests"
-        shell: julia --color=yes --project=test --code-coverage="@" --depwarn="yes" --check-bounds="yes" {0}
-        run: |
-          include(joinpath(pwd(), "test", "runtests.jl"))
+      - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1
       - name: Install LocalCoverage
         shell: julia {0}
@@ -122,16 +111,13 @@ jobs:
         with:
           version: '1'
       - uses: julia-actions/cache@v2
-      - name: "Instantiate build environment"
-        shell: julia --color=yes --project=test {0}
+      - name: Configure doc environment
+        shell: julia --project=docs --color=yes {0}
         run: |
-          import Pkg
-          Pkg.develop(url="https://github.com/JuliaDocs/DocumenterInventoryWritingBackport.jl")
-          Pkg.develop(url="https://github.com/JuliaDocs/DocumenterInterLinks.jl")
-          Pkg.develop(path=".")
+          using Pkg
           Pkg.instantiate()
-      - name: "Build documentation"
-        run: julia --project=test docs/make.jl
+      - uses: julia-actions/julia-buildpkg@v1
+      - uses: julia-actions/julia-docdeploy@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
@@ -151,7 +137,7 @@ jobs:
     name: Codestyle
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: julia-actions/setup-julia@v2
         with:
           version: '1'
@@ -164,7 +150,7 @@ jobs:
           using Pkg
           Pkg.add(PackageSpec(name="JuliaFormatter"))
           using JuliaFormatter
-          format(["src", "docs", "test", "devrepl.jl"], verbose=true)
+          format(["src", "docs", "test"], verbose=true)
       - name: Format Check
         shell: julia {0}
         run: |
