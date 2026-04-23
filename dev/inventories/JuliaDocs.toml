@@ -1,0 +1,12 @@
+# DocInventory version 1
+project = "JuliaDocs"
+
+[[std.doc]]
+name = "DocumenterInterLinks"
+uri = "DocumenterInterLinks.jl#readme"
+[[std.doc]]
+name = "DocumenterInterLinks.jl"
+uri = "DocumenterInterLinks.jl#readme"
+[[std.doc]]
+name = "DocInventories.jl"
+uri = "DocInventories.jl#readme"
